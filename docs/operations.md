@@ -493,7 +493,7 @@ and only the newest time of each part is kept. Nænsom never writes to the pump,
 the Nightscout site: the adapter's allow-list holds `GET treatments.json` and nothing else for the
 pump.
 
-**Reservoir and site countdown.** Nu shows owners and carers outside simpleMode a "Næste skift"
+**Reservoir and site countdown.** Nu shows owners and carers outside simpleMode a "Skift"
 card: when the reservoir (cartridge), the site (infusion set, cannula) and the sensor are next due, in plain
 words ("Skiftes om 1 dag", "Skulle skiftes for 3 timer siden"); tapping a part shows when the pump
 recorded the last change, when the next is due, and a choice of how many days the part lasts (1–15;

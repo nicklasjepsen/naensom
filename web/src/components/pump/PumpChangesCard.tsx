@@ -31,7 +31,7 @@ export interface PumpChangesCardProps {
 }
 
 /**
- * "Næste skift": when the reservoir, the site and the sensor are next due, in the words a person would use
+ * "Skift": when the reservoir, the site and the sensor are next due, in the words a person would use
  * ("om 1 dag"). Tapping a part shows when the pump recorded the last change and how many days the
  * part lasts, which can be changed there. The times come from the pump; nothing is typed. Past due
  * reads calmly, in the muted ink: this is a reminder, not an alarm.
