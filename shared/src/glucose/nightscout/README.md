@@ -85,13 +85,14 @@ read, by this cycle or a later one. Five pages are 1000 records on a normal wind
 first run, where tconnectsync writes a few dozen boluses a day; a `pump.page-cap` line means the
 site holds something other than one pump's record, and is worth a look.
 
-**Reservoir and site changes.** `fetchChangesSince(since)` makes two more reads of the same
-endpoint: `find[eventType]=Site Change` and `find[eventType]=Insulin Change`, each with
+**Reservoir, site and sensor changes.** `fetchChangesSince(since)` makes four more reads of the same
+endpoint: `find[eventType]=` `Site Change`, `Insulin Change`, `Sensor Start` and `Sensor Change`, each with
 `find[created_at][$gte]=<since>` and `count=30` (the newest; only the newest of each part is used).
 tconnectsync writes every fill as `Site Change` and names it in `notes` and `reason`: "Cartridge
 Filled" is the reservoir (`cartridge`), "Cannula Filled" the site (`cannula`), "Tubing Filled" is
 skipped. Any other `Site Change` is the site and `Insulin Change` the reservoir, as Nightscout's
-careportal writes them. A change keeps its kind, `created_at` and an id (`pump:<pump_event_id>`, or
+careportal writes them. `Sensor Start` (tconnectsync, on a started or joined CGM session) and
+`Sensor Change` (careportal) are a new sensor. A change keeps its kind, `created_at` and an id (`pump:<pump_event_id>`, or
 `ns:<_id>` without one) and nothing else.
 
 **The window** is the pump cycle's: `since = max(now − 14 d, min(now − 24 h, lastPumpAt − 3 h))`.

@@ -1,0 +1,21 @@
+BEGIN TRY
+
+BEGIN TRAN;
+
+-- AlterTable
+ALTER TABLE [dbo].[Space] ADD [pumpSensorAt] DATETIME2,
+[pumpSensorDays] INT NOT NULL CONSTRAINT [Space_pumpSensorDays_df] DEFAULT 10;
+
+COMMIT TRAN;
+
+END TRY
+BEGIN CATCH
+
+IF @@TRANCOUNT > 0
+BEGIN
+    ROLLBACK TRAN;
+END;
+THROW
+
+END CATCH
+

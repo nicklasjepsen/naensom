@@ -2,6 +2,7 @@
   "title": "Pump changes",
   "cartridge": "Reservoir",
   "cannula": "Site",
+  "sensor": "Sensor",
   "due": "Change {when}",
   "overdue": "Was due {when}",
   "dueNow": "Change now",

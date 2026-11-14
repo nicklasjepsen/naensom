@@ -145,7 +145,7 @@ private struct LiveActivityBanner: View {
     }
 }
 
-/// "Pumpeskift": when the reservoir and the site are next due, in plain words ("Skiftes om 1 dag").
+/// "Pumpeskift": when the reservoir, the site and the sensor are next due, in plain words ("Skiftes om 1 dag").
 /// Tapping a part shows when the pump recorded the last change, when the next is due, and how many
 /// days it lasts. Shown only once the site has sent a change; past due reads in the plain text
 /// colour with a clock symbol, a reminder and not an alarm.
@@ -187,7 +187,7 @@ private struct PumpChangesSection: View {
                 withAnimation(.easeInOut(duration: 0.15)) { open = expanded ? nil : part }
             } label: {
                 HStack(alignment: .firstTextBaseline) {
-                    Text(part == .cartridge ? L("changes.cartridge") : L("changes.cannula")).fontWeight(.semibold)
+                    Text(Self.name(part)).fontWeight(.semibold)
                     Spacer(minLength: 12)
                     if countdown.isPastDue {
                         Image(systemName: "clock.badge.exclamationmark").foregroundStyle(.secondary)
@@ -231,6 +231,14 @@ private struct PumpChangesSection: View {
                 .foregroundStyle(.secondary)
                 .padding(.bottom, 8)
             }
+        }
+    }
+
+    private static func name(_ part: PumpPart) -> String {
+        switch part {
+        case .cartridge: return L("changes.cartridge")
+        case .cannula: return L("changes.cannula")
+        case .sensor: return L("changes.sensor")
         }
     }
 

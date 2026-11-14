@@ -1,10 +1,10 @@
 // Enums are String columns validated by the Zod enums in
 // src/schemas/; JSON is NVarChar(Max) parsed with Zod (the SQL Server connector has no Json).
 // Foundation: 0001_foundation. Food: 0002_food. AI: 0003_ai. Theme: 0004_theme. Feel: 0005_feel.
-// Pump: 0006_pump. Live: 0007_live. Pump changes: 0008_pump_changes. Each migration's end state
-// is kept as a snapshot (foundation.prisma, food.prisma, ai.prisma, theme.prisma, feel.prisma,
-// pump.prisma, live.prisma) so
-// `prisma:check` can diff one step at a time.
+// Pump: 0006_pump. Live: 0007_live. Pump changes: 0008_pump_changes. Sensor: 0009_sensor. Each
+// migration's end state is kept as a snapshot (foundation.prisma, food.prisma, ai.prisma,
+// theme.prisma, feel.prisma, pump.prisma, live.prisma, pump-changes.prisma) so `prisma:check` can
+// diff one step at a time.
 
 generator client {
   provider      = "prisma-client-js"
@@ -63,12 +63,15 @@ model Space {
   pumpStatus        String    @default("not-configured")
   pumpFailures      Int       @default(0)
   lastPumpAt        DateTime?
-  // The change countdown: the newest reservoir (cartridge) and infusion-set (cannula) fill the pump
-  // recorded, and how many days each lasts. Read from the pump, never typed.
+  // The change countdown: the newest reservoir (cartridge) and infusion-set (cannula) fill and the
+  // newest sensor session the pump recorded, and how many days each lasts. Read from the pump,
+  // never typed.
   pumpCartridgeAt   DateTime?
   pumpCannulaAt     DateTime?
   pumpCartridgeDays Int       @default(3)
   pumpCannulaDays   Int       @default(3)
+  pumpSensorAt      DateTime?
+  pumpSensorDays    Int       @default(10)
   createdAt         DateTime  @default(now())
 
   subjectUser       User?              @relation("SpaceSubject", fields: [subjectUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)

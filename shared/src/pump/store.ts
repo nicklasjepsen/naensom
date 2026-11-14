@@ -154,6 +154,7 @@ export interface StatusTx extends EmitTx {
 export const CHANGE_COLUMNS = {
   cartridge: "pumpCartridgeAt",
   cannula: "pumpCannulaAt",
+  sensor: "pumpSensorAt",
 } as const satisfies Record<PumpChangeKind, string>;
 type ChangeColumn = (typeof CHANGE_COLUMNS)[PumpChangeKind];
 

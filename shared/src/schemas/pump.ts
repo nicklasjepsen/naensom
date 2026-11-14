@@ -134,11 +134,12 @@ export const PumpSettingsView = z.strictObject({
 export type PumpSettingsView = z.infer<typeof PumpSettingsView>;
 
 /**
- * Reservoir and infusion-set changes, as the pump recorded them (no one types them). `cartridge` is
- * a filled reservoir, `cannula` a filled infusion set (the site). Nothing here is insulin: the time
- * of a fill and the days a part lasts.
+ * Reservoir, infusion-set and sensor changes, as the pump recorded them (no one types them).
+ * `cartridge` is a filled reservoir, `cannula` a filled infusion set (the site), `sensor` a CGM
+ * session the pump started or joined. Nothing here is insulin: the time of a change and the days a
+ * part lasts.
  */
-export const PumpChangeKind = z.enum(["cartridge", "cannula"]);
+export const PumpChangeKind = z.enum(["cartridge", "cannula", "sensor"]);
 export type PumpChangeKind = z.infer<typeof PumpChangeKind>;
 
 /** A change as the adapter returns it: its kind and when the pump recorded it. */
@@ -149,11 +150,12 @@ export const PumpChange = z.strictObject({
 });
 export type PumpChange = z.infer<typeof PumpChange>;
 
-/** Days a part lasts before it is due again; whole days, as the pump makers state them. */
-export const PumpChangeDays = z.number().int().min(1).max(10);
-/** Three days for both: Tandem's cartridge limit and the usual infusion-set wear time. */
+/** Days a part lasts before it is due again; whole days, as the makers state them (a sensor up to 15). */
+export const PumpChangeDays = z.number().int().min(1).max(15);
+/** Three days for the reservoir and the site (Tandem's cartridge limit, the usual set wear), ten for a sensor (Dexcom G7). */
 export const PUMP_CARTRIDGE_DAYS_DEFAULT = 3;
 export const PUMP_CANNULA_DAYS_DEFAULT = 3;
+export const PUMP_SENSOR_DAYS_DEFAULT = 10;
 
 /** One part on the countdown: the last change the pump recorded, when it is due, the interval. */
 export const PumpChangeView = z.strictObject({
@@ -167,15 +169,24 @@ export type PumpChangeView = z.infer<typeof PumpChangeView>;
 export const PumpChangesView = z.strictObject({
   cartridge: PumpChangeView,
   cannula: PumpChangeView,
+  sensor: PumpChangeView,
   configured: z.boolean(),
 });
 export type PumpChangesView = z.infer<typeof PumpChangesView>;
 
 /** `PATCH /api/spaces/:id/pump/changes`: how many days each part lasts. */
 export const PumpChangeDaysBody = z
-  .strictObject({ cartridgeDays: PumpChangeDays, cannulaDays: PumpChangeDays })
+  .strictObject({
+    cartridgeDays: PumpChangeDays,
+    cannulaDays: PumpChangeDays,
+    sensorDays: PumpChangeDays,
+  })
   .partial()
-  .refine((body) => body.cartridgeDays !== undefined || body.cannulaDays !== undefined, {
-    message: "one of cartridgeDays or cannulaDays",
-  });
+  .refine(
+    (body) =>
+      body.cartridgeDays !== undefined ||
+      body.cannulaDays !== undefined ||
+      body.sensorDays !== undefined,
+    { message: "one of cartridgeDays, cannulaDays or sensorDays" },
+  );
 export type PumpChangeDaysBody = z.infer<typeof PumpChangeDaysBody>;

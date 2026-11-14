@@ -22,6 +22,11 @@ const VIEW: PumpChangesView = {
     dueAt: "2026-11-14T09:00:00.000Z",
     days: 3,
   },
+  sensor: {
+    lastAt: "2026-11-08T10:00:00.000Z",
+    dueAt: "2026-11-18T10:00:00.000Z",
+    days: 10,
+  },
   configured: true,
 };
 
@@ -60,6 +65,7 @@ describe("PumpChangesCard", () => {
     expect(screen.getByTestId("pump-change-cannula")).toHaveTextContent(
       "KanyleSkulle skiftes for 3 timer siden",
     );
+    expect(screen.getByTestId("pump-change-sensor")).toHaveTextContent("SensorSkiftes om 4 dage");
   });
 
   it("reads in English too", () => {

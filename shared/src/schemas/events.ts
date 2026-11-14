@@ -126,11 +126,12 @@ export const PumpMealsPayload = z.strictObject({
 });
 export const PumpStatusPayload = z.strictObject({ status: SourceStatus, since: z.iso.datetime() });
 /**
- * `pump.changes`: the pump recorded a new reservoir (cartridge) or infusion-set (cannula) fill, or
+ * `pump.changes`: the pump recorded a new reservoir (cartridge) or infusion-set (cannula) fill or a
+ * new sensor session, or
  * someone changed how many days one lasts. Which kinds only; the times are read from the route.
  */
 export const PumpChangesPayload = z.strictObject({
-  kinds: z.array(z.enum(["cartridge", "cannula"])).min(1),
+  kinds: z.array(z.enum(["cartridge", "cannula", "sensor"])).min(1),
 });
 
 /** One payload schema per type. `emit()` validates against this map before it writes. */

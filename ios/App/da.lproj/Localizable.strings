@@ -122,6 +122,7 @@
 "changes.title" = "Pumpeskift";
 "changes.cartridge" = "Reservoir";
 "changes.cannula" = "Kanyle";
+"changes.sensor" = "Sensor";
 "changes.last" = "Sidst skiftet %@";
 "changes.next" = "Næste gang %@";
 "changes.noneYet" = "Pumpen har ikke sendt et skift endnu.";

@@ -31,6 +31,7 @@ interface SpaceRow {
   lastSeq: number;
   pumpCartridgeAt: Date | null;
   pumpCannulaAt: Date | null;
+  pumpSensorAt: Date | null;
 }
 interface BolusRow {
   id: string;
@@ -265,6 +266,7 @@ function pumpSpace(overrides: Partial<SpaceRow> = {}): SpaceRow {
     lastSeq: 0,
     pumpCartridgeAt: null,
     pumpCannulaAt: null,
+    pumpSensorAt: null,
     ...overrides,
   };
 }
@@ -854,15 +856,17 @@ describe("runPumpCycle: reservoir and site changes", () => {
         change("pump:1", "cartridge", ago(4 * DAY)),
         change("pump:2", "cannula", ago(4 * DAY)),
         change("pump:3", "cartridge", ago(DAY)),
+        change("pump:9", "sensor", ago(6 * DAY)),
       ],
     );
     const outcomes = await harness(db, { s1: source }).run();
+    expect(db.state.spaces[0]?.pumpSensorAt).toEqual(ago(6 * DAY));
     expect(source.changesAsked).toEqual([ago(PUMP_CHANGES_DAYS * DAY)]);
     expect(db.state.spaces[0]?.pumpCartridgeAt).toEqual(ago(DAY));
     expect(db.state.spaces[0]?.pumpCannulaAt).toEqual(ago(4 * DAY));
-    expect(outcomes[0]?.changes).toEqual(["cannula", "cartridge"]);
+    expect(outcomes[0]?.changes).toEqual(["cannula", "cartridge", "sensor"]);
     const events = db.state.events.filter((e) => e.type === "pump.changes");
-    expect(events.map((e) => e.payload)).toEqual([{ kinds: ["cannula", "cartridge"] }]);
+    expect(events.map((e) => e.payload)).toEqual([{ kinds: ["cannula", "cartridge", "sensor"] }]);
   });
 
   it("writes and emits nothing when the fills are already stored", async () => {

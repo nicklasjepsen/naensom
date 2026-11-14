@@ -3,11 +3,12 @@ import Foundation
 import FoundationNetworking
 #endif
 
-/// The two pump parts with a change interval: the reservoir (cartridge) and the site (infusion
-/// set, cannula). Nothing here is insulin: the time of a fill and the days a part lasts.
+/// The parts with a change interval: the reservoir (cartridge), the site (infusion set, cannula)
+/// and the CGM sensor. Nothing here is insulin: the time of a change and the days a part lasts.
 public enum PumpPart: String, CaseIterable, Codable, Sendable {
     case cartridge
     case cannula
+    case sensor
 }
 
 /// The newest reservoir and site fill the pump recorded, as the Nightscout site has them. Read
@@ -15,26 +16,34 @@ public enum PumpPart: String, CaseIterable, Codable, Sendable {
 public struct PumpChanges: Equatable, Sendable {
     public var cartridgeAt: Date?
     public var cannulaAt: Date?
+    public var sensorAt: Date?
 
-    public init(cartridgeAt: Date? = nil, cannulaAt: Date? = nil) {
+    public init(cartridgeAt: Date? = nil, cannulaAt: Date? = nil, sensorAt: Date? = nil) {
         self.cartridgeAt = cartridgeAt
         self.cannulaAt = cannulaAt
+        self.sensorAt = sensorAt
     }
 
     public subscript(part: PumpPart) -> Date? {
         switch part {
         case .cartridge: return cartridgeAt
         case .cannula: return cannulaAt
+        case .sensor: return sensorAt
         }
     }
 
     /// True when the site has sent neither; the app then shows nothing about changes.
-    public var isEmpty: Bool { cartridgeAt == nil && cannulaAt == nil }
+    public var isEmpty: Bool { cartridgeAt == nil && cannulaAt == nil && sensorAt == nil }
 
-    /// Made-up changes for the demo: the reservoir filled 50 hours ago and the site 75 hours ago,
-    /// so with 3 days each one is due in a day and the other is just past due.
+    /// Made-up changes for the demo: the reservoir filled 50 hours ago, the site 75 hours ago and the
+    /// sensor six days ago, so with the defaults one is due in a day, one just past due and the
+    /// sensor in four days.
     public static func demo(now: Date) -> PumpChanges {
-        PumpChanges(cartridgeAt: now.addingTimeInterval(-50 * 3600), cannulaAt: now.addingTimeInterval(-75 * 3600))
+        PumpChanges(
+            cartridgeAt: now.addingTimeInterval(-50 * 3600),
+            cannulaAt: now.addingTimeInterval(-75 * 3600),
+            sensorAt: now.addingTimeInterval(-6 * 86_400)
+        )
     }
 }
 
@@ -47,7 +56,9 @@ public enum PumpCountdown: Equatable, Sendable {
     case overdue(Int, Unit)
 
     public static let defaultDays = 3
-    public static let dayChoices = 1...10
+    /// Ten days for a sensor (Dexcom G7).
+    public static let defaultSensorDays = 10
+    public static let dayChoices = 1...15
 
     /// When a part is due: its last fill plus its interval in days.
     public static func dueAt(lastAt: Date?, days: Int) -> Date? {
@@ -115,7 +126,9 @@ extension NightscoutClient {
     public static let treatmentsPath = "/api/v1/treatments.json"
     /// tconnectsync writes every fill as `Site Change` and names it in `notes`/`reason`; Nightscout's
     /// careportal writes `Site Change` for the site and `Insulin Change` for the reservoir.
-    public static let changeEventTypes = ["Site Change", "Insulin Change"]
+    /// A new sensor is `Sensor Start` (tconnectsync, on a started or joined CGM session) or
+    /// careportal's `Sensor Change`.
+    public static let changeEventTypes = ["Site Change", "Insulin Change", "Sensor Start", "Sensor Change"]
     /// Fills read back; a part is never worn longer than this.
     public static let changeWindow: TimeInterval = 14 * 86_400
 
@@ -154,6 +167,7 @@ extension NightscoutClient {
                 switch part {
                 case .cartridge: changes.cartridgeAt = max(changes.cartridgeAt ?? at, at)
                 case .cannula: changes.cannulaAt = max(changes.cannulaAt ?? at, at)
+                case .sensor: changes.sensorAt = max(changes.sensorAt ?? at, at)
                 }
             }
         }
@@ -181,6 +195,7 @@ extension NightscoutClient {
     /// is the site. `Insulin Change` is the reservoir.
     static func part(eventType: String, notes: Any?, reason: Any?) -> PumpPart? {
         if eventType == "Insulin Change" { return .cartridge }
+        if eventType == "Sensor Start" || eventType == "Sensor Change" { return .sensor }
         guard eventType == "Site Change" else { return nil }
         let words = [notes, reason].compactMap { $0 as? String }.first { !$0.trimmingCharacters(in: .whitespaces).isEmpty } ?? ""
         let text = words.trimmingCharacters(in: .whitespaces).lowercased()

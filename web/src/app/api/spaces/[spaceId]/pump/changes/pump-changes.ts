@@ -1,5 +1,5 @@
 // The change countdown's server side: the newest reservoir (cartridge) and infusion-set (cannula)
-// fill the pump recorded, and how many days each lasts. The fill times are written by the pump
+// fill and sensor session the pump recorded, and how many days each lasts. The fill times are written by the pump
 // cycle only; this module reads them and writes the two intervals.
 import {
   HttpError,
@@ -20,6 +20,8 @@ export interface PumpChangesRow {
   pumpCannulaAt: Date | null;
   pumpCartridgeDays: number;
   pumpCannulaDays: number;
+  pumpSensorAt: Date | null;
+  pumpSensorDays: number;
 }
 
 function configured(pumpSource: string | null): boolean {
@@ -45,6 +47,7 @@ export function toPumpChangesView(row: PumpChangesRow): PumpChangesView {
   return PumpChangesView.parse({
     cartridge: part(row.pumpCartridgeAt, row.pumpCartridgeDays),
     cannula: part(row.pumpCannulaAt, row.pumpCannulaDays),
+    sensor: part(row.pumpSensorAt, row.pumpSensorDays),
     configured: configured(row.pumpSource),
   });
 }
@@ -63,7 +66,11 @@ export function savePumpChangeDays(
     async (tx, emit) => {
       const current = await tx.space.findUnique({ where: { id: spaceId } });
       if (!current) throw new HttpError(404, "not-found");
-      const data: { pumpCartridgeDays?: number; pumpCannulaDays?: number } = {};
+      const data: {
+        pumpCartridgeDays?: number;
+        pumpCannulaDays?: number;
+        pumpSensorDays?: number;
+      } = {};
       const kinds: PumpChangeKind[] = [];
       if (body.cannulaDays !== undefined && body.cannulaDays !== current.pumpCannulaDays) {
         data.pumpCannulaDays = body.cannulaDays;
@@ -72,6 +79,10 @@ export function savePumpChangeDays(
       if (body.cartridgeDays !== undefined && body.cartridgeDays !== current.pumpCartridgeDays) {
         data.pumpCartridgeDays = body.cartridgeDays;
         kinds.push("cartridge");
+      }
+      if (body.sensorDays !== undefined && body.sensorDays !== current.pumpSensorDays) {
+        data.pumpSensorDays = body.sensorDays;
+        kinds.push("sensor");
       }
       if (kinds.length === 0) return toPumpChangesView(current);
       const row = await tx.space.update({ where: { id: spaceId }, data });

@@ -49,7 +49,7 @@ final class PumpChangesTests: XCTestCase {
     func testAsksOnlyForTheTwoChangeTypesWithGetAndTheTokenInTheHeader() async throws {
         let transport = ChangesTransport(bodies: [:])
         _ = try await NightscoutClient(transport: transport).pumpChanges(site: "https://ns.example.org", token: "secret", now: now)
-        XCTAssertEqual(transport.requests.count, 2)
+        XCTAssertEqual(transport.requests.count, 4)
         for request in transport.requests {
             XCTAssertEqual(request.httpMethod, "GET")
             XCTAssertEqual(request.url?.path, "/api/v1/treatments.json")
@@ -59,7 +59,7 @@ final class PumpChangesTests: XCTestCase {
         let types = transport.requests.compactMap {
             URLComponents(url: $0.url!, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "find[eventType]" }?.value
         }
-        XCTAssertEqual(types, ["Site Change", "Insulin Change"])
+        XCTAssertEqual(types, ["Site Change", "Insulin Change", "Sensor Start", "Sensor Change"])
     }
 
     func testReadsCareportalEntries() throws {
@@ -67,6 +67,15 @@ final class PumpChangesTests: XCTestCase {
         XCTAssertEqual(site.map(\.0), [.cannula])
         let insulin = try NightscoutClient.parseChanges(Data(#"[{"eventType":"Insulin Change","created_at":"2026-11-13T20:10:00Z"}]"#.utf8), eventType: "Insulin Change")
         XCTAssertEqual(insulin.map(\.0), [.cartridge])
+    }
+
+    func testReadsSensorStartsAsTheSensor() async throws {
+        let transport = ChangesTransport(bodies: [
+            "Sensor Start": #"[{"eventType":"Sensor Start","created_at":"2026-11-08T07:30:00.000Z","notes":"CGM Session Joined","pump_event_id":"700"}]"#,
+            "Sensor Change": #"[{"eventType":"Sensor Change","created_at":"2026-11-05T07:30:00Z"}]"#,
+        ])
+        let changes = try await NightscoutClient(transport: transport).pumpChanges(site: "ns.example.org", token: "t", now: now)
+        XCTAssertEqual(changes.sensorAt, ISO8601DateFormatter().date(from: "2026-11-08T07:30:00Z"))
     }
 
     func testARefusedTokenThrows() async {
@@ -108,6 +117,7 @@ final class PumpChangesTests: XCTestCase {
         let demo = PumpChanges.demo(now: now)
         XCTAssertEqual(PumpCountdown.to(PumpCountdown.dueAt(lastAt: demo.cartridgeAt, days: 3), now: now), .due(1, .day))
         XCTAssertEqual(PumpCountdown.to(PumpCountdown.dueAt(lastAt: demo.cannulaAt, days: 3), now: now), .overdue(3, .hour))
+        XCTAssertEqual(PumpCountdown.to(PumpCountdown.dueAt(lastAt: demo.sensorAt, days: 10), now: now), .due(4, .day))
     }
 
     func testSettingsKeepTheDaysAndFallBackToThree() {
@@ -115,11 +125,13 @@ final class PumpChangesTests: XCTestCase {
         XCTAssertEqual(settings.days(for: .cartridge), 3)
         settings.setDays(2, for: .cannula)
         settings.setDays(99, for: .cartridge)
+        XCTAssertEqual(settings.sensorDays, 10)
         XCTAssertEqual(settings.cannulaDays, 2)
-        XCTAssertEqual(settings.cartridgeDays, 10)
+        XCTAssertEqual(settings.cartridgeDays, 15)
         XCTAssertEqual(FollowSettings.load(settings.encoded()), settings)
         let old = FollowSettings.load(Data(#"{"alertsOn":true}"#.utf8))
         XCTAssertEqual(old.cartridgeDays, 3)
         XCTAssertEqual(old.cannulaDays, 3)
+        XCTAssertEqual(old.sensorDays, 10)
     }
 }

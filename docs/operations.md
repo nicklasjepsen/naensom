@@ -494,15 +494,18 @@ the Nightscout site: the adapter's allow-list holds `GET treatments.json` and no
 pump.
 
 **Reservoir and site countdown.** Nu shows owners and carers outside simpleMode a "Pumpeskift"
-card: when the reservoir (cartridge) and the site (infusion set, cannula) are next due, in plain
+card: when the reservoir (cartridge), the site (infusion set, cannula) and the sensor are next due, in plain
 words ("Skiftes om 1 dag", "Skulle skiftes for 3 timer siden"); tapping a part shows when the pump
-recorded the last change, when the next is due, and a choice of how many days the part lasts (1–10,
-3 by default for both; `PATCH /api/spaces/:id/pump/changes`). The change times are never typed:
+recorded the last change, when the next is due, and a choice of how many days the part lasts (1–15;
+3 by default for the reservoir and the site, 10 for the sensor; `PATCH /api/spaces/:id/pump/changes`). The change times are never typed:
 each pump run also reads the newest `Site Change` and `Insulin Change` treatments of the last 14
 days. tconnectsync writes every fill as `Site Change` with `notes` "Cartridge Filled …", "Cannula
 Filled …" or "Tubing Filled …" (its `PUMP_EVENTS` feature must be on); the cartridge fill is the
 reservoir, the cannula fill the site, and a tubing fill is skipped. A `Site Change` without those
-words (careportal, other uploaders) counts as the site, and `Insulin Change` as the reservoir. The
+words (careportal, other uploaders) counts as the site, and `Insulin Change` as the reservoir. A new
+sensor is `Sensor Start` (tconnectsync writes it when the pump starts or joins a CGM session, so a
+pump that re-joins a running sensor restarts the countdown) or careportal's `Sensor Change` (migration
+`0009_sensor` adds `pumpSensorAt` and `pumpSensorDays`). The
 newest of each moves `Space.pumpCartridgeAt` or `pumpCannulaAt` forward only (migration
 `0008_pump_changes`, which also adds `pumpCartridgeDays` and `pumpCannulaDays`) and emits
 `pump.changes` in the glucose group. A failure reading the changes logs `pump.changes-failed` and

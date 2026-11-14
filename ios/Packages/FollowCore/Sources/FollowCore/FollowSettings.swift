@@ -14,12 +14,14 @@ public struct FollowSettings: Codable, Equatable, Sendable {
     /// How many days the reservoir and the site last before the countdown says they are due.
     public var cartridgeDays: Int
     public var cannulaDays: Int
+    public var sensorDays: Int
 
     public static let defaults = FollowSettings(unit: .mmolL, liveActivityOn: true, alertsOn: false, curveWindow: .sixHours)
 
     public init(
         unit: GlucoseUnit, liveActivityOn: Bool, alertsOn: Bool, curveWindow: CurveWindow,
-        cartridgeDays: Int = PumpCountdown.defaultDays, cannulaDays: Int = PumpCountdown.defaultDays
+        cartridgeDays: Int = PumpCountdown.defaultDays, cannulaDays: Int = PumpCountdown.defaultDays,
+        sensorDays: Int = PumpCountdown.defaultSensorDays
     ) {
         self.unit = unit
         self.liveActivityOn = liveActivityOn
@@ -27,17 +29,23 @@ public struct FollowSettings: Codable, Equatable, Sendable {
         self.curveWindow = curveWindow
         self.cartridgeDays = Self.clampDays(cartridgeDays)
         self.cannulaDays = Self.clampDays(cannulaDays)
+        self.sensorDays = Self.clampDays(sensorDays)
     }
 
     /// The interval for one part.
     public func days(for part: PumpPart) -> Int {
-        part == .cartridge ? cartridgeDays : cannulaDays
+        switch part {
+        case .cartridge: return cartridgeDays
+        case .cannula: return cannulaDays
+        case .sensor: return sensorDays
+        }
     }
 
     public mutating func setDays(_ days: Int, for part: PumpPart) {
         switch part {
         case .cartridge: cartridgeDays = Self.clampDays(days)
         case .cannula: cannulaDays = Self.clampDays(days)
+        case .sensor: sensorDays = Self.clampDays(days)
         }
     }
 
@@ -47,7 +55,7 @@ public struct FollowSettings: Codable, Equatable, Sendable {
 
     /// A copy saved by an earlier build may still hold `autoStartLiveActivity`; it is ignored.
     private enum CodingKeys: String, CodingKey {
-        case unit, liveActivityOn, alertsOn, curveWindow, cartridgeDays, cannulaDays
+        case unit, liveActivityOn, alertsOn, curveWindow, cartridgeDays, cannulaDays, sensorDays
     }
 
     public init(from decoder: Decoder) throws {
@@ -59,6 +67,7 @@ public struct FollowSettings: Codable, Equatable, Sendable {
         curveWindow = (try? container.decodeIfPresent(CurveWindow.self, forKey: .curveWindow)) ?? fallback.curveWindow
         cartridgeDays = Self.clampDays((try? container.decodeIfPresent(Int.self, forKey: .cartridgeDays)) ?? fallback.cartridgeDays)
         cannulaDays = Self.clampDays((try? container.decodeIfPresent(Int.self, forKey: .cannulaDays)) ?? fallback.cannulaDays)
+        sensorDays = Self.clampDays((try? container.decodeIfPresent(Int.self, forKey: .sensorDays)) ?? fallback.sensorDays)
     }
 
     /// The stored copy, or the defaults when there is none or it cannot be read.

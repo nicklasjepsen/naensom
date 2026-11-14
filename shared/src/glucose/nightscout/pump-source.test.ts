@@ -544,7 +544,7 @@ describe("NightscoutPumpSource.fetchChangesSince", () => {
     { eventType: "Site Change", created_at: "not a time", pump_event_id: "905" },
   ]);
 
-  it("asks for Site Change and Insulin Change only, on the allow-listed read", async () => {
+  it("asks for the four change types only, on the allow-listed read", async () => {
     const h = pump((call) =>
       call.url.searchParams.get("find[eventType]") === "Site Change"
         ? { body: tconnect }
@@ -554,6 +554,8 @@ describe("NightscoutPumpSource.fetchChangesSince", () => {
     expect(h.calls.map((c) => c.url.searchParams.get("find[eventType]"))).toEqual([
       "Site Change",
       "Insulin Change",
+      "Sensor Start",
+      "Sensor Change",
     ]);
     for (const call of h.calls) {
       expect(call.method).toBe("GET");
@@ -598,6 +600,37 @@ describe("NightscoutPumpSource.fetchChangesSince", () => {
     expect(changes).toEqual([
       { sourceId: "ns:c1", kind: "cannula", ts: "2026-10-13T20:00:00.000Z" },
       { sourceId: "ns:c2", kind: "cartridge", ts: "2026-10-13T20:10:00.000Z" },
+    ]);
+  });
+
+  it("reads tconnectsync's Sensor Start, and careportal's Sensor Change, as a new sensor", async () => {
+    const h = pump((call) => {
+      const type = call.url.searchParams.get("find[eventType]");
+      if (type === "Sensor Start") {
+        return {
+          body: JSON.stringify([
+            {
+              eventType: "Sensor Start",
+              created_at: "2026-10-08T07:30:00.000Z",
+              notes: "CGM Session Joined",
+              pump_event_id: "700",
+            },
+          ]),
+        };
+      }
+      if (type === "Sensor Change") {
+        return {
+          body: JSON.stringify([
+            { _id: "s9", eventType: "Sensor Change", created_at: "2026-10-05T07:30:00Z" },
+          ]),
+        };
+      }
+      return { body: "[]" };
+    });
+    const changes = await h.source.fetchChangesSince(new Date(now.getTime() - 14 * DAY));
+    expect(changes).toEqual([
+      { sourceId: "ns:s9", kind: "sensor", ts: "2026-10-05T07:30:00.000Z" },
+      { sourceId: "pump:700", kind: "sensor", ts: "2026-10-08T07:30:00.000Z" },
     ]);
   });
 

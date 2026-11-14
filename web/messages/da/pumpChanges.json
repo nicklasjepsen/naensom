@@ -2,6 +2,7 @@
   "title": "Pumpeskift",
   "cartridge": "Reservoir",
   "cannula": "Kanyle",
+  "sensor": "Sensor",
   "due": "Skiftes {when}",
   "overdue": "Skulle skiftes {when}",
   "dueNow": "Skiftes nu",

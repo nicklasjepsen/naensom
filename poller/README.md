@@ -85,9 +85,9 @@ the new boluses, `code` is `ok` or how many spaces failed (`2-failed`), `ms` the
 "pump"`, one manual line, unverified until a carer ticks it), and moves `lastPumpAt` forward. The
   events go out in the same transaction: `pump.meals` for every meal it changed and, once per cycle,
   `pump.imported` with the count and the range. A re-poll stores and emits nothing.
-- **Changes.** After the boluses, the cycle reads the reservoir and site fills of the last 14 days
-  (`fetchChangesSince`, optional on `PumpSource`), moves `pumpCartridgeAt` and `pumpCannulaAt`
-  forward to the newest of each, and emits one `pump.changes` naming the parts that moved. A failure
+- **Changes.** After the boluses, the cycle reads the reservoir and site fills and sensor sessions of
+  the last 14 days (`fetchChangesSince`, optional on `PumpSource`), moves `pumpCartridgeAt`,
+  `pumpCannulaAt` and `pumpSensorAt` forward to the newest of each, and emits one `pump.changes` naming the parts that moved. A failure
   there is logged as `pump.changes-failed` and fails neither the run nor the status.
 - **Status.** Three consecutive failures of the source set `pumpStatus = disconnected` and emit
   `pump.status`; the next success sets `connected` and emits again. A database failure after a good

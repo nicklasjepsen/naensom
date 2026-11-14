@@ -122,6 +122,7 @@
 "changes.title" = "Pump changes";
 "changes.cartridge" = "Reservoir";
 "changes.cannula" = "Site";
+"changes.sensor" = "Sensor";
 "changes.last" = "Last changed %@";
 "changes.next" = "Next due %@";
 "changes.noneYet" = "The pump has not sent a change yet.";

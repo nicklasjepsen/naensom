@@ -11,8 +11,13 @@ import { changeTime, countdownTo, relativeText } from "./change-text";
 import { savePumpChangeDays } from "./changes-api";
 import styles from "./pump-changes.module.css";
 
-const KINDS: PumpChangeKind[] = ["cartridge", "cannula"];
-const DAY_CHOICES = Array.from({ length: 10 }, (_, i) => i + 1);
+const KINDS: PumpChangeKind[] = ["cartridge", "cannula", "sensor"];
+const DAY_CHOICES = Array.from({ length: 15 }, (_, i) => i + 1);
+const DAYS_KEY = {
+  cartridge: "cartridgeDays",
+  cannula: "cannulaDays",
+  sensor: "sensorDays",
+} as const;
 
 export interface PumpChangesCardProps {
   spaceId: string;
@@ -26,7 +31,7 @@ export interface PumpChangesCardProps {
 }
 
 /**
- * "Pumpeskift": when the reservoir and the site are next due, in the words a person would use
+ * "Pumpeskift": when the reservoir, the site and the sensor are next due, in the words a person would use
  * ("om 1 dag"). Tapping a part shows when the pump recorded the last change and how many days the
  * part lasts, which can be changed there. The times come from the pump; nothing is typed. Past due
  * reads calmly, in the muted ink: this is a reminder, not an alarm.
@@ -50,9 +55,7 @@ export function PumpChangesCard({
     setBusy(true);
     setFailed(false);
     try {
-      onSaved(
-        await save(spaceId, kind === "cartridge" ? { cartridgeDays: days } : { cannulaDays: days }),
-      );
+      onSaved(await save(spaceId, { [DAYS_KEY[kind]]: days }));
     } catch {
       setFailed(true);
     } finally {

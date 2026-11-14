@@ -13,7 +13,8 @@ export const ENDPOINTS = {
   verifyauth: { method: "GET", path: "/api/v1/verifyauth" },
   /**
    * The pump record (v0.7.0 plan §5): read with `find[eventType]=Combo Bolus`, and for the change
-   * countdown with `Site Change` or `Insulin Change`, never any other type.
+   * countdown with `Site Change`, `Insulin Change`, `Sensor Start` or `Sensor Change`, never any
+   * other type.
    */
   treatments: { method: "GET", path: "/api/v1/treatments.json" },
 } as const;
@@ -134,7 +135,18 @@ export const TreatmentsResponse = z.array(z.unknown());
  */
 export const SITE_CHANGE_EVENT_TYPE = "Site Change";
 export const INSULIN_CHANGE_EVENT_TYPE = "Insulin Change";
-export const CHANGE_EVENT_TYPES = [SITE_CHANGE_EVENT_TYPE, INSULIN_CHANGE_EVENT_TYPE] as const;
+/**
+ * A new sensor: tconnectsync writes `Sensor Start` when the pump starts or joins a CGM session;
+ * careportal writes `Sensor Start` or `Sensor Change`. `Sensor Stop` is never read.
+ */
+export const SENSOR_START_EVENT_TYPE = "Sensor Start";
+export const SENSOR_CHANGE_EVENT_TYPE = "Sensor Change";
+export const CHANGE_EVENT_TYPES = [
+  SITE_CHANGE_EVENT_TYPE,
+  INSULIN_CHANGE_EVENT_TYPE,
+  SENSOR_START_EVENT_TYPE,
+  SENSOR_CHANGE_EVENT_TYPE,
+] as const;
 /** Newest records read per type: about ten days of tconnectsync's three fills per change. */
 export const CHANGE_PAGE_COUNT = 30;
 
@@ -148,6 +160,9 @@ export function toChangeKind(
   reason: unknown,
 ): PumpChangeKind | undefined {
   if (eventType === INSULIN_CHANGE_EVENT_TYPE) return "cartridge";
+  if (eventType === SENSOR_START_EVENT_TYPE || eventType === SENSOR_CHANGE_EVENT_TYPE) {
+    return "sensor";
+  }
   if (eventType !== SITE_CHANGE_EVENT_TYPE) return undefined;
   const words = [notes, reason].find((value) => typeof value === "string" && value.trim() !== "");
   const text = typeof words === "string" ? words.trim().toLowerCase() : "";

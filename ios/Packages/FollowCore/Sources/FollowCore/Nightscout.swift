@@ -49,7 +49,7 @@ public protocol HTTPTransport: Sendable {
 
 /// Reads the newest sensor readings from a Nightscout site. Read-only: every call it can make is a
 /// `GET`: `/api/v1/entries/sgv.json` (the same endpoint the desktop app and Nænsom's poller read),
-/// `/api/v1/status.json`, and `/api/v1/treatments.json` for reservoir and site changes only
+/// `/api/v1/status.json`, and `/api/v1/treatments.json` for reservoir, site and sensor changes only
 /// (`PumpChanges.swift`). The token goes in the `api-secret` header, never in the URL, so it stays
 /// out of server logs.
 public struct NightscoutClient: Sendable {

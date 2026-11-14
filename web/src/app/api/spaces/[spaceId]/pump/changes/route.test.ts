@@ -59,6 +59,8 @@ beforeEach(() => {
       pumpCannulaAt: null,
       pumpCartridgeDays: 3,
       pumpCannulaDays: 3,
+      pumpSensorAt: new Date("2026-10-10T08:00:00.000Z"),
+      pumpSensorDays: 10,
     });
   }
   const recorder = recordingSink();
@@ -102,6 +104,11 @@ describe("GET /api/spaces/:id/pump/changes", () => {
           days: 3,
         },
         cannula: { days: 3 },
+        sensor: {
+          lastAt: "2026-10-10T08:00:00.000Z",
+          dueAt: "2026-10-20T08:00:00.000Z",
+          days: 10,
+        },
         configured: true,
       });
     }
@@ -135,14 +142,23 @@ describe("PATCH /api/spaces/:id/pump/changes", () => {
     expect(published.map((p) => p.envelope.type)).toEqual(["pump.changes"]);
   });
 
+  it("sets a sensor's days up to 15", async () => {
+    const response = await patch("owner", { sensorDays: 15 });
+    expect(response.status).toBe(200);
+    expect(space()).toMatchObject({ pumpSensorDays: 15 });
+    expect(events.map((e) => [e.type, e.payload])).toEqual([
+      ["pump.changes", { kinds: ["sensor"] }],
+    ]);
+  });
+
   it("writes and emits nothing when the days are what they were", async () => {
     expect((await patch("owner", { cartridgeDays: 3 })).status).toBe(200);
     expect(events).toEqual([]);
   });
 
-  it("refuses days outside 1 to 10, an empty body, a viewer and simpleMode", async () => {
+  it("refuses days outside 1 to 15, an empty body, a viewer and simpleMode", async () => {
     expect((await patch("owner", { cannulaDays: 0 })).status).toBe(400);
-    expect((await patch("owner", { cannulaDays: 11 })).status).toBe(400);
+    expect((await patch("owner", { cannulaDays: 16 })).status).toBe(400);
     expect((await patch("owner", { cannulaDays: 2.5 })).status).toBe(400);
     expect((await patch("owner", {})).status).toBe(400);
     expect((await patch("viewer", { cannulaDays: 2 })).status).toBe(403);
