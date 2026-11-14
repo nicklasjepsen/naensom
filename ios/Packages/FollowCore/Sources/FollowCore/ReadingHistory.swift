@@ -5,18 +5,29 @@ public enum CurveWindow: Int, Codable, CaseIterable, Sendable {
     case threeHours = 3
     case sixHours = 6
     case twelveHours = 12
+    case twentyFourHours = 24
 
     public var hours: Int { rawValue }
     public var duration: TimeInterval { TimeInterval(rawValue) * 3600 }
+    /// Hours between the time labels under the curve, so they never crowd: hourly up to 6 hours,
+    /// every 3 hours at 12, every 6 hours at 24.
+    public var axisStrideHours: Int {
+        switch self {
+        case .threeHours, .sixHours: return 1
+        case .twelveHours: return 3
+        case .twentyFourHours: return 6
+        }
+    }
 }
 
-/// The readings the app keeps while it is open: the last 12 hours, newest first, one per
+/// The readings the app keeps while it is open: the last 24 hours, newest first, one per
 /// timestamp. Fetched in full once, then topped up with the few readings since the newest.
 public enum ReadingHistory {
     /// The longest curve the app shows.
-    public static let keep: TimeInterval = CurveWindow.twelveHours.duration
-    /// Twelve hours of five-minute readings and a little more for a site that uploads more often.
-    public static let fullFetchCount = 150
+    public static let keep: TimeInterval = CurveWindow.twentyFourHours.duration
+    /// Twenty-four hours of five-minute readings (288) and a little more for a site that uploads
+    /// more often.
+    public static let fullFetchCount = 300
 
     /// How many readings to ask for: the full history when there is none, otherwise enough to
     /// cover the gap since the newest one (one every five minutes) and a little more.
@@ -28,7 +39,7 @@ public enum ReadingHistory {
     }
 
     /// Old and new together, newest first, one per timestamp (the fresh copy wins), older than
-    /// twelve hours dropped, except the newest reading: a site that has sent nothing for longer
+    /// twenty-four hours dropped, except the newest reading: a site that has sent nothing for longer
     /// still shows its last value, grey and with its age.
     public static func merge(_ existing: [Reading], _ fresh: [Reading], now: Date) -> [Reading] {
         var byTime: [Date: Reading] = [:]
