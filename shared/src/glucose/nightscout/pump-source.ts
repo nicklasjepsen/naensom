@@ -1,12 +1,16 @@
 import type { Logger } from "../../log";
 import type { NightscoutCredential, ProbeResult } from "../../schemas/glucose";
-import { PumpBolus } from "../../schemas/pump";
+import { PumpBolus, PumpChange } from "../../schemas/pump";
 import type { PumpSource } from "../../pump/types";
 import {
   BOLUS_EVENT_TYPE,
+  CHANGE_EVENT_TYPES,
+  CHANGE_PAGE_COUNT,
+  ChangeEntry,
   ENDPOINTS,
   MAX_PAGES,
   pageCountFor,
+  toChangeKind,
   toKind,
   TreatmentEntry,
   TreatmentsResponse,
@@ -121,13 +125,40 @@ export class NightscoutPumpSource implements PumpSource {
     );
   }
 
+  /**
+   * Reservoir and infusion-set fills at or after `since`, oldest first, one per record: the newest
+   * `CHANGE_PAGE_COUNT` of each change type. Only the newest of each part is ever used, so one page
+   * is enough; a record that cannot be read, and a tubing fill, are skipped.
+   */
+  async fetchChangesSince(since: Date): Promise<PumpChange[]> {
+    const byId = new Map<string, PumpChange>();
+    for (const eventType of CHANGE_EVENT_TYPES) {
+      const query = new URLSearchParams({
+        "find[created_at][$gte]": since.toISOString(),
+        "find[eventType]": eventType,
+        count: String(CHANGE_PAGE_COUNT),
+      });
+      for (const row of await this.readRows(query)) {
+        const change = toChange(row, eventType);
+        if (change === undefined || Date.parse(change.ts) < since.getTime()) continue;
+        if (!byId.has(change.sourceId)) byId.set(change.sourceId, change);
+      }
+    }
+    return [...byId.values()].sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts));
+  }
+
   /** "ok" means the site answered `verifyauth` with read access (see `NightscoutSource.probe`). */
   probe(): Promise<ProbeResult> {
     return this.verifier.probe();
   }
 
-  /** One allow-listed `GET treatments.json`; the transport refuses any other call before sending. */
+  /** One allow-listed `GET treatments.json`, read as a page of boluses. */
   private async readPage(query: URLSearchParams, since: Date): Promise<Page> {
+    return toPage(await this.readRows(query), since);
+  }
+
+  /** One allow-listed `GET treatments.json`; the transport refuses any other call before sending. */
+  private async readRows(query: URLSearchParams): Promise<unknown[]> {
     // One signal for the request and the body: a stall anywhere ends as a timeout, not a hang.
     const signal = AbortSignal.timeout(this.timeoutMs);
     let status: number;
@@ -163,8 +194,26 @@ export class NightscoutPumpSource implements PumpSource {
       this.log?.warn("nightscout.request-failed", { code: "UnexpectedShape" });
       throw new NightscoutError("UnexpectedShape", status);
     }
-    return toPage(list.data, since);
+    return list.data;
   }
+}
+
+/** A change record of the type asked for, or undefined: another type, unreadable, a tubing fill. */
+function toChange(row: unknown, eventType: string): PumpChange | undefined {
+  const entry = ChangeEntry.safeParse(row);
+  if (!entry.success || entry.data.eventType !== eventType) return undefined;
+  const kind = toChangeKind(entry.data.eventType, entry.data.notes, entry.data.reason);
+  if (kind === undefined) return undefined;
+  const id = entry.data.pump_event_id ?? entry.data._id;
+  if (id === undefined) return undefined;
+  const parsed = PumpChange.safeParse({
+    // tconnectsync's pump_event_id is a sequence number per pump; prefixed, so a careportal `_id`
+    // can never collide with it.
+    sourceId: `${entry.data.pump_event_id == null ? "ns" : "pump"}:${String(id)}`,
+    kind,
+    ts: new Date(Date.parse(entry.data.created_at)).toISOString(),
+  });
+  return parsed.success ? parsed.data : undefined;
 }
 
 /** A row of another treatment type is ignored, not dropped: the query should not have sent it. */

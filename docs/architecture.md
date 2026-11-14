@@ -49,7 +49,7 @@ Events go to one of two Web PubSub groups per space:
 
 - `space-<id>`: every member, viewers included. Meals, foods, settings, people.
 - `space-<id>-glucose`: owners and carers only. The `reading` and `readings.imported` events, and
-  since v0.7.0 the pump record's `pump.imported`, `pump.meals` and `pump.status`
+  since v0.7.0 the pump record's `pump.imported`, `pump.meals`, `pump.status` and `pump.changes`
   (`GLUCOSE_EVENT_TYPES` in `shared/src/schemas/events.ts`), so a viewer never learns that pump
   data exists or arrived.
 

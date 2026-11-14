@@ -3,7 +3,7 @@ import type { EventSink } from "../events/types";
 import { log as defaultLog, type Logger } from "../log";
 import type { EventEnvelope } from "../schemas/events";
 import type { SourceStatus } from "../schemas/glucose";
-import type { PumpBolus } from "../schemas/pump";
+import type { PumpBolus, PumpChange, PumpChangeKind } from "../schemas/pump";
 import type { Locale } from "../schemas/settings";
 import { AFTER_MINUTES, BEFORE_MINUTES, diffLinks, matchBoluses, type MatchMeal } from "./match";
 import { pumpMealItemName } from "./messages/index";
@@ -150,6 +150,23 @@ export interface StatusTx extends EmitTx {
   };
 }
 
+/** The Space column that holds the newest fill of each part. */
+export const CHANGE_COLUMNS = {
+  cartridge: "pumpCartridgeAt",
+  cannula: "pumpCannulaAt",
+} as const satisfies Record<PumpChangeKind, string>;
+type ChangeColumn = (typeof CHANGE_COLUMNS)[PumpChangeKind];
+
+/** A change write: a fill time moves forward only, decided by the database. */
+export interface ChangeTx extends EmitTx {
+  space: EmitTx["space"] & {
+    updateMany(args: {
+      where: { id: string; OR: Partial<Record<ChangeColumn, null | { lt: Date }>>[] };
+      data: Partial<Record<ChangeColumn, Date>>;
+    }): Promise<{ count: number }>;
+  };
+}
+
 /** The database the cycle runs on; the Prisma client satisfies it. */
 export interface PumpDb {
   space: {
@@ -178,13 +195,13 @@ export interface PumpDb {
     }): Promise<{ locale: string } | null>;
   };
   $transaction<T>(
-    work: (tx: PumpTx & StatusTx) => Promise<T>,
+    work: (tx: PumpTx & StatusTx & ChangeTx) => Promise<T>,
     options: { isolationLevel: "Serializable"; timeout: number; maxWait: number },
   ): Promise<T>;
 }
 
 export type PumpWriter = <T>(
-  work: (tx: PumpTx & StatusTx, emit: EmitFn) => Promise<T>,
+  work: (tx: PumpTx & StatusTx & ChangeTx, emit: EmitFn) => Promise<T>,
 ) => Promise<T>;
 
 export interface PumpWriterDeps {
@@ -650,4 +667,36 @@ export async function writePumpStatus(
     });
   }
   return true;
+}
+
+/**
+ * The newest fill of each part, written when it is newer than the stored one, and one
+ * `pump.changes` naming the parts that moved, in one commit. A fill already stored, or older than
+ * it, writes and emits nothing. Returns the parts that moved.
+ */
+export async function writePumpChanges(
+  tx: ChangeTx,
+  emit: EmitFn,
+  input: { spaceId: string; changes: readonly PumpChange[] },
+): Promise<PumpChangeKind[]> {
+  const newest = new Map<PumpChangeKind, Date>();
+  for (const change of input.changes) {
+    const ts = new Date(change.ts);
+    const before = newest.get(change.kind);
+    if (before === undefined || ts > before) newest.set(change.kind, ts);
+  }
+  const moved: PumpChangeKind[] = [];
+  for (const [kind, ts] of newest) {
+    const column = CHANGE_COLUMNS[kind];
+    const { count } = await tx.space.updateMany({
+      where: { id: input.spaceId, OR: [{ [column]: null }, { [column]: { lt: ts } }] },
+      data: { [column]: ts },
+    });
+    if (count === 1) moved.push(kind);
+  }
+  if (moved.length > 0) {
+    moved.sort();
+    await emit(input.spaceId, "pump.changes", { kinds: moved });
+  }
+  return moved;
 }

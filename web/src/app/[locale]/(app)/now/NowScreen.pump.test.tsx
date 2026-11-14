@@ -176,7 +176,7 @@ const mount = (props: Partial<NowScreenProps> = {}) => {
     </I18nProvider>,
   );
 };
-const pumpCalls = () => calls.filter((url) => url.includes("/pump"));
+const pumpCalls = () => calls.filter((url) => url.includes("/pump?"));
 
 describe("Nu with the pump record (v0.7.0 plan §9)", () => {
   it.each(["owner", "carer"] as const)(

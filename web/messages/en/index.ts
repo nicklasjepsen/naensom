@@ -23,6 +23,7 @@ import now from "./now.json";
 import passkey from "./passkey.json";
 import people from "./people.json";
 import pump from "./pump.json";
+import pumpChanges from "./pumpChanges.json";
 import pumpMeal from "./pumpMeal.json";
 import pumpSettings from "./pumpSettings.json";
 import recipe from "./recipe.json";
@@ -61,6 +62,7 @@ const messages = {
   passkey,
   people,
   pump,
+  pumpChanges,
   pumpMeal,
   pumpSettings,
   recipe,

@@ -318,13 +318,13 @@ describe("Nu · phone (Main)", () => {
     );
   });
 
-  it("writes nothing: Nu only reads day, history, foods and the pump record", async () => {
+  it("writes nothing: Nu only reads day, history, foods, the pump record and its changes", async () => {
     api.meals = [lunch];
     mount();
     await within(screen.getByTestId("last-meal")).findByTestId("meal-card");
     expect(api.calls.every((c) => c.method === "GET")).toBe(true);
     expect(new Set(api.calls.map((c) => c.path))).toEqual(
-      new Set(["day", "foods", "history/day", "pump"]),
+      new Set(["day", "foods", "history/day", "pump", "pump/changes"]),
     );
   });
 

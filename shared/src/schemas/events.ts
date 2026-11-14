@@ -37,6 +37,7 @@ export const EventType = z.enum([
   "pump.imported",
   "pump.meals",
   "pump.status",
+  "pump.changes",
 ]);
 export type EventType = z.infer<typeof EventType>;
 
@@ -124,6 +125,13 @@ export const PumpMealsPayload = z.strictObject({
   removed: mealIds,
 });
 export const PumpStatusPayload = z.strictObject({ status: SourceStatus, since: z.iso.datetime() });
+/**
+ * `pump.changes`: the pump recorded a new reservoir (cartridge) or infusion-set (cannula) fill, or
+ * someone changed how many days one lasts. Which kinds only; the times are read from the route.
+ */
+export const PumpChangesPayload = z.strictObject({
+  kinds: z.array(z.enum(["cartridge", "cannula"])).min(1),
+});
 
 /** One payload schema per type. `emit()` validates against this map before it writes. */
 export const EventPayloads = {
@@ -157,6 +165,7 @@ export const EventPayloads = {
   "pump.imported": PumpImportedPayload,
   "pump.meals": PumpMealsPayload,
   "pump.status": PumpStatusPayload,
+  "pump.changes": PumpChangesPayload,
 } as const satisfies Record<EventType, z.ZodType>;
 
 export type EventPayload<T extends EventType> = z.infer<(typeof EventPayloads)[T]>;
@@ -202,6 +211,7 @@ export const EventEnvelope = z.discriminatedUnion("type", [
   envelope("pump.imported"),
   envelope("pump.meals"),
   envelope("pump.status"),
+  envelope("pump.changes"),
 ]);
 export type EventEnvelope = z.infer<typeof EventEnvelope>;
 export type EventEnvelopeOf<T extends EventType> = Extract<EventEnvelope, { type: T }>;
@@ -217,5 +227,6 @@ export const GLUCOSE_EVENT_TYPES: readonly EventType[] = [
   "pump.imported",
   "pump.meals",
   "pump.status",
+  "pump.changes",
 ];
 export const isGlucoseEvent = (type: EventType): boolean => GLUCOSE_EVENT_TYPES.includes(type);

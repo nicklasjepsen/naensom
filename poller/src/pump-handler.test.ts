@@ -43,6 +43,7 @@ const outcome = (spaceId: string, fields: Partial<PumpSpaceOutcome> = {}): PumpS
   code: "ok",
   stored: 0,
   mealsCreated: 0,
+  changes: [],
   status: "connected",
   ...fields,
 });

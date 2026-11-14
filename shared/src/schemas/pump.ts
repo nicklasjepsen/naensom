@@ -132,3 +132,50 @@ export const PumpSettingsView = z.strictObject({
   configured: z.boolean(),
 });
 export type PumpSettingsView = z.infer<typeof PumpSettingsView>;
+
+/**
+ * Reservoir and infusion-set changes, as the pump recorded them (no one types them). `cartridge` is
+ * a filled reservoir, `cannula` a filled infusion set (the site). Nothing here is insulin: the time
+ * of a fill and the days a part lasts.
+ */
+export const PumpChangeKind = z.enum(["cartridge", "cannula"]);
+export type PumpChangeKind = z.infer<typeof PumpChangeKind>;
+
+/** A change as the adapter returns it: its kind and when the pump recorded it. */
+export const PumpChange = z.strictObject({
+  sourceId: z.string().min(1).max(100),
+  kind: PumpChangeKind,
+  ts: timestamp,
+});
+export type PumpChange = z.infer<typeof PumpChange>;
+
+/** Days a part lasts before it is due again; whole days, as the pump makers state them. */
+export const PumpChangeDays = z.number().int().min(1).max(10);
+/** Three days for both: Tandem's cartridge limit and the usual infusion-set wear time. */
+export const PUMP_CARTRIDGE_DAYS_DEFAULT = 3;
+export const PUMP_CANNULA_DAYS_DEFAULT = 3;
+
+/** One part on the countdown: the last change the pump recorded, when it is due, the interval. */
+export const PumpChangeView = z.strictObject({
+  lastAt: timestamp.optional(),
+  dueAt: timestamp.optional(),
+  days: PumpChangeDays,
+});
+export type PumpChangeView = z.infer<typeof PumpChangeView>;
+
+/** `GET /api/spaces/:id/pump/changes`: both parts, and whether a pump record is set up at all. */
+export const PumpChangesView = z.strictObject({
+  cartridge: PumpChangeView,
+  cannula: PumpChangeView,
+  configured: z.boolean(),
+});
+export type PumpChangesView = z.infer<typeof PumpChangesView>;
+
+/** `PATCH /api/spaces/:id/pump/changes`: how many days each part lasts. */
+export const PumpChangeDaysBody = z
+  .strictObject({ cartridgeDays: PumpChangeDays, cannulaDays: PumpChangeDays })
+  .partial()
+  .refine((body) => body.cartridgeDays !== undefined || body.cannulaDays !== undefined, {
+    message: "one of cartridgeDays or cannulaDays",
+  });
+export type PumpChangeDaysBody = z.infer<typeof PumpChangeDaysBody>;

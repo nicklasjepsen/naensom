@@ -1,0 +1,16 @@
+{
+  "title": "Pumpeskift",
+  "cartridge": "Reservoir",
+  "cannula": "Kanyle",
+  "due": "Skiftes {when}",
+  "overdue": "Skulle skiftes {when}",
+  "dueNow": "Skiftes nu",
+  "unknown": "Intet skift fra pumpen endnu",
+  "last": "Sidst skiftet {time}",
+  "next": "Næste gang {time}",
+  "noneYet": "Pumpen har ikke sendt et skift endnu.",
+  "lasts": "Holder",
+  "days": "{days, plural, one {# dag} other {# dage}}",
+  "saveFailed": "Det blev ikke gemt. Prøv igen.",
+  "fromPump": "Tiderne kommer fra pumpen."
+}

@@ -3,8 +3,9 @@ import { describe, expect, it } from "vitest";
 import { MemoryEventSink } from "../events/memory";
 import { createLogger } from "../log";
 import type { ProbeResult } from "../schemas/glucose";
-import type { PumpBolus } from "../schemas/pump";
+import type { PumpBolus, PumpChange } from "../schemas/pump";
 import {
+  PUMP_CHANGES_DAYS,
   PUMP_CONCURRENCY,
   PUMP_MEAL_GRACE_MINUTES,
   pumpSinceFor,
@@ -28,6 +29,8 @@ interface SpaceRow {
   pumpFailures: number;
   lastPumpAt: Date | null;
   lastSeq: number;
+  pumpCartridgeAt: Date | null;
+  pumpCannulaAt: Date | null;
 }
 interface BolusRow {
   id: string;
@@ -260,6 +263,8 @@ function pumpSpace(overrides: Partial<SpaceRow> = {}): SpaceRow {
     pumpFailures: 0,
     lastPumpAt: null,
     lastSeq: 0,
+    pumpCartridgeAt: null,
+    pumpCannulaAt: null,
     ...overrides,
   };
 }
@@ -294,6 +299,30 @@ class FakePumpSource implements PumpSource {
     return Promise.resolve("ok");
   }
 }
+
+/** A pump source that also reports reservoir and site fills, or fails to. */
+class ChangingPumpSource extends FakePumpSource {
+  readonly changesAsked: Date[] = [];
+  constructor(
+    records: PumpBolus[],
+    public changes: PumpChange[],
+    private readonly changesFail = false,
+  ) {
+    super(records);
+  }
+
+  fetchChangesSince(since: Date): Promise<PumpChange[]> {
+    this.changesAsked.push(since);
+    if (this.changesFail) return Promise.reject(Object.assign(new Error("x"), { code: "500" }));
+    return Promise.resolve(this.changes.filter((c) => Date.parse(c.ts) >= since.getTime()));
+  }
+}
+
+const change = (sourceId: string, kind: PumpChange["kind"], ts: Date): PumpChange => ({
+  sourceId,
+  kind,
+  ts: iso(ts),
+});
 
 function bolus(sourceId: string, ts: Date, extra: Partial<PumpBolus> = {}): PumpBolus {
   return { sourceId, ts: iso(ts), units: 1, kind: "standard", ...extra };
@@ -694,7 +723,10 @@ describe("runPumpCycle: status", () => {
     const source = new FakePumpSource([], {
       onFetch: () => {
         // The other timer invocation commits the third failure while this fetch is in flight.
-        Object.assign(db.state.spaces[0] as object, { pumpStatus: "disconnected", pumpFailures: 3 });
+        Object.assign(db.state.spaces[0] as object, {
+          pumpStatus: "disconnected",
+          pumpFailures: 3,
+        });
         return () => undefined;
       },
     });
@@ -810,5 +842,57 @@ describe("runPumpCycle: logs", () => {
     expect(output).toContain('"spaceId":"s1"');
     expect(output).toContain('"spaceId":"s-down"');
     expect(output).not.toMatch(/2\.37|0\.73|"count":47|47g|example-ns|token|secret/);
+  });
+});
+
+describe("runPumpCycle: reservoir and site changes", () => {
+  it("stores the newest fill of each part and emits one pump.changes naming them", async () => {
+    const db = fakeDb({ spaces: [pumpSpace()] });
+    const source = new ChangingPumpSource(
+      [],
+      [
+        change("pump:1", "cartridge", ago(4 * DAY)),
+        change("pump:2", "cannula", ago(4 * DAY)),
+        change("pump:3", "cartridge", ago(DAY)),
+      ],
+    );
+    const outcomes = await harness(db, { s1: source }).run();
+    expect(source.changesAsked).toEqual([ago(PUMP_CHANGES_DAYS * DAY)]);
+    expect(db.state.spaces[0]?.pumpCartridgeAt).toEqual(ago(DAY));
+    expect(db.state.spaces[0]?.pumpCannulaAt).toEqual(ago(4 * DAY));
+    expect(outcomes[0]?.changes).toEqual(["cannula", "cartridge"]);
+    const events = db.state.events.filter((e) => e.type === "pump.changes");
+    expect(events.map((e) => e.payload)).toEqual([{ kinds: ["cannula", "cartridge"] }]);
+  });
+
+  it("writes and emits nothing when the fills are already stored", async () => {
+    const db = fakeDb({
+      spaces: [pumpSpace({ pumpCartridgeAt: ago(DAY), pumpCannulaAt: ago(DAY) })],
+    });
+    const source = new ChangingPumpSource(
+      [],
+      [change("pump:3", "cartridge", ago(DAY)), change("pump:4", "cannula", ago(2 * DAY))],
+    );
+    const outcomes = await harness(db, { s1: source }).run();
+    expect(outcomes[0]?.changes).toEqual([]);
+    expect(db.state.spaces[0]?.pumpCannulaAt).toEqual(ago(DAY));
+    expect(eventTypes(db)).not.toContain("pump.changes");
+  });
+
+  it("keeps the bolus cycle ok and the status connected when the changes cannot be read", async () => {
+    const db = fakeDb({ spaces: [pumpSpace()] });
+    const source = new ChangingPumpSource([bolus("1", ago(HOUR))], [], true);
+    const h = harness(db, { s1: source });
+    const outcomes = await h.run();
+    expect(outcomes[0]).toMatchObject({ outcome: "ok", stored: 1, changes: [] });
+    expect(db.state.spaces[0]?.pumpFailures).toBe(0);
+    expect(h.lines.some((line) => line.includes("pump.changes-failed"))).toBe(true);
+  });
+
+  it("leaves the countdown alone for a source that has no changes to give", async () => {
+    const db = fakeDb({ spaces: [pumpSpace()] });
+    const outcomes = await harness(db, { s1: new FakePumpSource([]) }).run();
+    expect(outcomes[0]?.changes).toEqual([]);
+    expect(db.state.spaces[0]?.pumpCartridgeAt).toBeNull();
   });
 });

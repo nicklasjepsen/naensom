@@ -1,0 +1,16 @@
+{
+  "title": "Pump changes",
+  "cartridge": "Reservoir",
+  "cannula": "Site",
+  "due": "Change {when}",
+  "overdue": "Was due {when}",
+  "dueNow": "Change now",
+  "unknown": "No change from the pump yet",
+  "last": "Last changed {time}",
+  "next": "Next due {time}",
+  "noneYet": "The pump has not sent a change yet.",
+  "lasts": "Lasts",
+  "days": "{days, plural, one {# day} other {# days}}",
+  "saveFailed": "That was not saved. Please try again.",
+  "fromPump": "The times come from the pump."
+}

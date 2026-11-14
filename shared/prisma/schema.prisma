@@ -1,8 +1,9 @@
 // Enums are String columns validated by the Zod enums in
 // src/schemas/; JSON is NVarChar(Max) parsed with Zod (the SQL Server connector has no Json).
 // Foundation: 0001_foundation. Food: 0002_food. AI: 0003_ai. Theme: 0004_theme. Feel: 0005_feel.
-// Pump: 0006_pump. Live: 0007_live. Each migration's end state is kept as a snapshot
-// (foundation.prisma, food.prisma, ai.prisma, theme.prisma, feel.prisma, pump.prisma) so
+// Pump: 0006_pump. Live: 0007_live. Pump changes: 0008_pump_changes. Each migration's end state
+// is kept as a snapshot (foundation.prisma, food.prisma, ai.prisma, theme.prisma, feel.prisma,
+// pump.prisma, live.prisma) so
 // `prisma:check` can diff one step at a time.
 
 generator client {
@@ -41,28 +42,34 @@ model User {
 }
 
 model Space {
-  id             String    @id @default(cuid())
-  name           String
-  subjectUserId  String?
-  timezone       String
-  glucoseUnit    String    @default("mmol")
-  targetLow      Decimal   @default(4.0) @db.Decimal(4, 1)
-  targetHigh     Decimal   @default(10.0) @db.Decimal(4, 1)
-  glucoseSource  String?   @db.NVarChar(Max)
-  sourceStatus   String    @default("not-configured")
-  sourceFailures Int       @default(0)
-  lastReadingAt  DateTime?
-  lastSeq        Int       @default(0)
-  aiEnabled      Boolean   @default(false)
-  aiProvider     String?
-  symptomKinds   String    @default("[]") @db.NVarChar(Max)
+  id                String    @id @default(cuid())
+  name              String
+  subjectUserId     String?
+  timezone          String
+  glucoseUnit       String    @default("mmol")
+  targetLow         Decimal   @default(4.0) @db.Decimal(4, 1)
+  targetHigh        Decimal   @default(10.0) @db.Decimal(4, 1)
+  glucoseSource     String?   @db.NVarChar(Max)
+  sourceStatus      String    @default("not-configured")
+  sourceFailures    Int       @default(0)
+  lastReadingAt     DateTime?
+  lastSeq           Int       @default(0)
+  aiEnabled         Boolean   @default(false)
+  aiProvider        String?
+  symptomKinds      String    @default("[]") @db.NVarChar(Max)
   // The pump record's own connection (v0.7.0 plan §3): a PumpSourceConfig as JSON, its status, its
   // failure count and the newest stored bolus's time. Separate from the glucose source on purpose.
-  pumpSource     String?   @db.NVarChar(Max)
-  pumpStatus     String    @default("not-configured")
-  pumpFailures   Int       @default(0)
-  lastPumpAt     DateTime?
-  createdAt      DateTime  @default(now())
+  pumpSource        String?   @db.NVarChar(Max)
+  pumpStatus        String    @default("not-configured")
+  pumpFailures      Int       @default(0)
+  lastPumpAt        DateTime?
+  // The change countdown: the newest reservoir (cartridge) and infusion-set (cannula) fill the pump
+  // recorded, and how many days each lasts. Read from the pump, never typed.
+  pumpCartridgeAt   DateTime?
+  pumpCannulaAt     DateTime?
+  pumpCartridgeDays Int       @default(3)
+  pumpCannulaDays   Int       @default(3)
+  createdAt         DateTime  @default(now())
 
   subjectUser       User?              @relation("SpaceSubject", fields: [subjectUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   memberships       Membership[]

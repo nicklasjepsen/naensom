@@ -50,6 +50,11 @@
   color: var(--text);
 }
 
+/* "Pumpeskift" under the curve on the phone; on desktop it sits in the side column. */
+.phoneChanges {
+  margin-top: 12px;
+}
+
 .lastMeal {
   display: flex;
   flex-direction: column;

@@ -26,7 +26,7 @@ import {
 import { SymptomDetailCard } from "@/components/history/SymptomDetailCard";
 import { beforeInstant, useSymptomRange } from "@/components/history/useSymptomRange";
 import { ManualReadingButton, ManualReadingSheet, useManualReading } from "@/components/manual";
-import { usePumpHistory } from "@/components/pump";
+import { PumpChangesCard, usePumpChanges, usePumpHistory } from "@/components/pump";
 import { FeelButton } from "@/components/symptoms/FeelButton";
 import { useKindLabel } from "@/components/symptoms/kinds";
 import { HeaderSlot } from "@/components/shell/HeaderSlot";
@@ -166,6 +166,25 @@ export function NowScreen({
     pumpHistory.status === "ready"
       ? { boluses: pumpHistory.boluses, reach: pumpHistory.reach }
       : undefined;
+  // When the reservoir and the site are next due, from the pump's own record; owners and carers
+  // outside simpleMode, and only once a pump record is set up.
+  const pumpChanges = usePumpChanges(spaceId, {
+    subscribe: feed.subscribe,
+    role,
+    simpleMode,
+    enabled: feed.loaded,
+  });
+  const changesCard =
+    pumpChanges.state.status === "ready" && pumpChanges.state.view.configured ? (
+      <PumpChangesCard
+        spaceId={spaceId}
+        view={pumpChanges.state.view}
+        now={now}
+        timeZone={zone}
+        locale={locale}
+        onSaved={pumpChanges.replace}
+      />
+    ) : null;
   const [activeSymptomId, setActiveSymptomId] = useState<string | null>(null);
   const activeSymptom = symptoms.find((symptom) => symptom.id === activeSymptomId) ?? null;
 
@@ -326,6 +345,7 @@ export function NowScreen({
               {...(pump ? { pump } : {})}
             />
           </Card>
+          {changesCard && <div className={styles.phoneChanges}>{changesCard}</div>}
         </section>
 
         <section className={styles.desktop} data-testid="now-desktop">
@@ -453,6 +473,7 @@ export function NowScreen({
                   />
                 </aside>
               )}
+              {changesCard}
               <NowAiCards ai={ai} locale={locale} />
             </div>
           </div>

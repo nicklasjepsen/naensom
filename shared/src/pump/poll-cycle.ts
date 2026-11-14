@@ -2,7 +2,7 @@ import { createEventSinkFromEnv } from "../events/pubsub";
 import type { EventSink } from "../events/types";
 import { log as defaultLog, type Logger } from "../log";
 import type { SourceStatus } from "../schemas/glucose";
-import { PumpBolus, PumpSourceConfig } from "../schemas/pump";
+import { PumpBolus, PumpChange, PumpSourceConfig, type PumpChangeKind } from "../schemas/pump";
 import { localeOrDefault } from "../schemas/settings";
 import {
   commitPumpDay,
@@ -10,6 +10,7 @@ import {
   findStoredBoluses,
   hasDueBoluses,
   splitByDay,
+  writePumpChanges,
   writePumpStatus,
   type ImportTotals,
   type PumpDb,
@@ -37,6 +38,8 @@ export const PUMP_OVERLAP_HOURS = 3;
 export const PUMP_MEAL_GRACE_MINUTES = 120;
 /** Three consecutive failures mark the pump record disconnected, as for a glucose source. */
 export const PUMP_FAILURES_BEFORE_DISCONNECTED = 3;
+/** Reservoir and site fills are read this far back; a part is never worn longer. */
+export const PUMP_CHANGES_DAYS = 14;
 /** Spaces read side by side, so a few stalled sites cannot hold the rest until the host's timeout. */
 export const PUMP_CONCURRENCY = 4;
 
@@ -85,6 +88,8 @@ export interface PumpSpaceOutcome {
   stored: number;
   /** Pump meals made this cycle. */
   mealsCreated: number;
+  /** Parts whose newest fill moved this cycle. */
+  changes: PumpChangeKind[];
   status: SourceStatus;
 }
 
@@ -181,6 +186,7 @@ async function pollSpace(space: PumpSpaceRow, deps: Resolved): Promise<PumpSpace
   const spaceId = space.id;
   let stored = 0;
   let mealsCreated = 0;
+  let changes: PumpChangeKind[] = [];
   try {
     const config = parseConfig(space.pumpSource);
     let source: PumpSource;
@@ -206,6 +212,8 @@ async function pollSpace(space: PumpSpaceRow, deps: Resolved): Promise<PumpSpace
       throw new CycleError("store-failed", error);
     }
 
+    changes = await storeChanges(spaceId, source, started, deps);
+
     let status: SourceStatus;
     try {
       status = await markConnected(space, deps);
@@ -218,7 +226,7 @@ async function pollSpace(space: PumpSpaceRow, deps: Resolved): Promise<PumpSpace
       code: "ok",
       ms: deps.now().getTime() - started.getTime(),
     });
-    return { spaceId, outcome: "ok", code: "ok", stored, mealsCreated, status };
+    return { spaceId, outcome: "ok", code: "ok", stored, mealsCreated, changes, status };
   } catch (error) {
     const code = error instanceof CycleError ? error.code : "fetch-failed";
     const cause = error instanceof CycleError ? error.cause : error;
@@ -232,7 +240,34 @@ async function pollSpace(space: PumpSpaceRow, deps: Resolved): Promise<PumpSpace
     const sourceFault =
       code === "config-invalid" || code === "source-unavailable" || code === "fetch-failed";
     const status = sourceFault ? await markFailed(space, deps) : (space.pumpStatus as SourceStatus);
-    return { spaceId, outcome: "failed", code, stored, mealsCreated, status };
+    return { spaceId, outcome: "failed", code, stored, mealsCreated, changes, status };
+  }
+}
+
+/**
+ * The reservoir and site fills of the last two weeks, newest of each kept. A failure here is
+ * logged and leaves the countdown as it was: the boluses are the record, the countdown a help, so
+ * it never fails the cycle or counts towards "disconnected".
+ */
+async function storeChanges(
+  spaceId: string,
+  source: PumpSource,
+  started: Date,
+  deps: Resolved,
+): Promise<PumpChangeKind[]> {
+  if (source.fetchChangesSince === undefined) return [];
+  const since = new Date(started.getTime() - PUMP_CHANGES_DAYS * DAY);
+  try {
+    const fetched = await source.fetchChangesSince(since);
+    const changes = fetched.flatMap((change) => {
+      const parsed = PumpChange.safeParse(change);
+      return parsed.success ? [parsed.data] : [];
+    });
+    if (changes.length === 0) return [];
+    return await deps.write((tx, emit) => writePumpChanges(tx, emit, { spaceId, changes }));
+  } catch (error) {
+    deps.log.warn("pump.changes-failed", { spaceId, code: codeOf(error) });
+    return [];
   }
 }
 

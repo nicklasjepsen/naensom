@@ -231,8 +231,10 @@ describe("the pump record's other contracts", () => {
     expect(pumpSecretName("s1")).not.toBe(glucoseSecretName("s1"));
   });
 
-  it("PumpSource reads boluses since a time and probes, nothing else", () => {
-    expectTypeOf<keyof PumpSource>().toEqualTypeOf<"fetchBolusesSince" | "probe">();
+  it("PumpSource reads boluses and changes since a time and probes, nothing else", () => {
+    expectTypeOf<keyof PumpSource>().toEqualTypeOf<
+      "fetchBolusesSince" | "fetchChangesSince" | "probe"
+    >();
     expectTypeOf<PumpSource["fetchBolusesSince"]>().returns.resolves.toEqualTypeOf<PumpBolus[]>();
     expectTypeOf<PumpSource["probe"]>().returns.resolves.toEqualTypeOf<
       "ok" | "bad-credentials" | "unreachable"

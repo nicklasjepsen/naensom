@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import type { Trend } from "../../schemas/glucose";
-import type { PumpBolusKind } from "../../schemas/pump";
+import type { PumpBolusKind, PumpChangeKind } from "../../schemas/pump";
 
 /**
  * The Nightscout REST API v1 as Nænsom reads it. This file and `transport.ts` are the only places
@@ -11,7 +11,10 @@ import type { PumpBolusKind } from "../../schemas/pump";
 export const ENDPOINTS = {
   entries: { method: "GET", path: "/api/v1/entries/sgv.json" },
   verifyauth: { method: "GET", path: "/api/v1/verifyauth" },
-  /** The pump record (v0.7.0 plan §5): read with `find[eventType]=Combo Bolus` only. */
+  /**
+   * The pump record (v0.7.0 plan §5): read with `find[eventType]=Combo Bolus`, and for the change
+   * countdown with `Site Change` or `Insulin Change`, never any other type.
+   */
   treatments: { method: "GET", path: "/api/v1/treatments.json" },
 } as const;
 
@@ -122,3 +125,44 @@ export const TreatmentEntry = z.object({
 export type TreatmentEntry = z.infer<typeof TreatmentEntry>;
 
 export const TreatmentsResponse = z.array(z.unknown());
+
+/**
+ * The treatment types a reservoir or site change arrives as. tconnectsync writes every fill as
+ * `Site Change` and tells them apart in `notes` ("Cartridge Filled", "Cannula Filled", "Tubing
+ * Filled"); Nightscout's own careportal and other uploaders write `Site Change` for the infusion set
+ * and `Insulin Change` for the reservoir.
+ */
+export const SITE_CHANGE_EVENT_TYPE = "Site Change";
+export const INSULIN_CHANGE_EVENT_TYPE = "Insulin Change";
+export const CHANGE_EVENT_TYPES = [SITE_CHANGE_EVENT_TYPE, INSULIN_CHANGE_EVENT_TYPE] as const;
+/** Newest records read per type: about ten days of tconnectsync's three fills per change. */
+export const CHANGE_PAGE_COUNT = 30;
+
+/**
+ * The part a change record is about, or undefined when it is about neither (a tubing fill). Reads
+ * `notes`, then `reason`, as tconnectsync writes the same words in both.
+ */
+export function toChangeKind(
+  eventType: string,
+  notes: unknown,
+  reason: unknown,
+): PumpChangeKind | undefined {
+  if (eventType === INSULIN_CHANGE_EVENT_TYPE) return "cartridge";
+  if (eventType !== SITE_CHANGE_EVENT_TYPE) return undefined;
+  const words = [notes, reason].find((value) => typeof value === "string" && value.trim() !== "");
+  const text = typeof words === "string" ? words.trim().toLowerCase() : "";
+  if (text.startsWith("cartridge filled")) return "cartridge";
+  if (text.startsWith("tubing filled")) return undefined;
+  return "cannula";
+}
+
+/** The fields a change needs: its type, an id, its time, and the words that say which part. */
+export const ChangeEntry = z.object({
+  eventType: z.string(),
+  pump_event_id: z.union([z.string().min(1).max(100), z.number().int().nonnegative()]).nullish(),
+  _id: z.string().min(1).max(100).optional(),
+  created_at: z.string().refine((value) => !Number.isNaN(Date.parse(value))),
+  notes: z.unknown().optional(),
+  reason: z.unknown().optional(),
+});
+export type ChangeEntry = z.infer<typeof ChangeEntry>;

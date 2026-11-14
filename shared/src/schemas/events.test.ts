@@ -43,6 +43,7 @@ export const samplePayloads: { [T in EventType]: EventPayload<T> } = {
   "pump.imported": { count: 12, from: ts, to: ts },
   "pump.meals": { updated: ["m1"], created: ["m2"], removed: [] },
   "pump.status": { status: "disconnected", since: ts },
+  "pump.changes": { kinds: ["cannula"] },
 };
 
 describe("EventEnvelope", () => {
@@ -78,6 +79,7 @@ describe("EventEnvelope", () => {
       "pump.imported",
       "pump.meals",
       "pump.status",
+      "pump.changes",
     ]);
     expect(Object.keys(EventPayloads).sort()).toEqual([...EventType.options].sort());
   });
@@ -232,6 +234,7 @@ describe("symptom.* (v0.6.0 plan §4)", () => {
       "pump.imported",
       "pump.meals",
       "pump.status",
+      "pump.changes",
     ]);
     for (const type of ["symptom.created", "symptom.updated", "symptom.deleted"] as const)
       expect(isGlucoseEvent(type)).toBe(false);
@@ -245,11 +248,12 @@ describe("pump.* (v0.7.0 plan §4)", () => {
     expect(at("pump.imported")).toBe(at("symptom.deleted") + 1);
     expect(at("pump.meals")).toBe(at("pump.imported") + 1);
     expect(at("pump.status")).toBe(at("pump.meals") + 1);
-    expect(options.length).toBe(at("pump.status") + 1);
+    expect(at("pump.changes")).toBe(at("pump.status") + 1);
+    expect(options.length).toBe(at("pump.changes") + 1);
   });
 
   it("is a glucose-group event, every one of them, so a viewer's group never carries them", () => {
-    for (const type of ["pump.imported", "pump.meals", "pump.status"] as const) {
+    for (const type of ["pump.imported", "pump.meals", "pump.status", "pump.changes"] as const) {
       expect(isGlucoseEvent(type), type).toBe(true);
       expect(GLUCOSE_EVENT_TYPES).toContain(type);
     }

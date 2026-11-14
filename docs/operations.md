@@ -475,8 +475,8 @@ two hours old: one manual line, "Kulhydrater fra pumpen", unverified ("Fra pumpe
 until an owner or carer ticks "Det passer" or edits it; when someone logs the meal later, the
 logged meal takes the bolus and the untouched pump meal goes; a pump meal deleted by hand is never
 made again. Automatic boluses (Control-IQ's own) are drawn on the curve and never attached to a
-meal. Every change goes out as `pump.imported`, `pump.meals` or `pump.status`, all three in the
-glucose group, so a viewer's socket and event page never carry them.
+meal. Every change goes out as `pump.imported`, `pump.meals`, `pump.status` or `pump.changes`, all
+in the glucose group, so a viewer's socket and event page never carry them.
 
 A multi-day first run commits one day at a time, and only the last commit carries the cycle's
 `pump.imported` (with the whole run's count and range), as the glucose import does; each commit
@@ -487,9 +487,28 @@ last event. This is known and accepted.
 filtered out in the query and never reach Nænsom. Of a bolus record only five fields are read
 (`pump_event_id`, `created_at`, `insulin` as `units`, `notes` as the kind, `carbs`); `glucose`,
 `enteredBy`, `utcOffset`, `_id` and the rest are dropped at the parse. The site's address and the
-token live in Key Vault only, never in the database, a log line or an error. Nænsom never writes to
-the pump, to t:connect or to the Nightscout site: the adapter's allow-list holds `GET
-treatments.json` and nothing else for the pump.
+token live in Key Vault only, never in the database, a log line or an error. Of a change record only
+its type, `pump_event_id` (or `_id`), `created_at` and the words in `notes` or `reason` are read,
+and only the newest time of each part is kept. Nænsom never writes to the pump, to t:connect or to
+the Nightscout site: the adapter's allow-list holds `GET treatments.json` and nothing else for the
+pump.
+
+**Reservoir and site countdown.** Nu shows owners and carers outside simpleMode a "Pumpeskift"
+card: when the reservoir (cartridge) and the site (infusion set, cannula) are next due, in plain
+words ("Skiftes om 1 dag", "Skulle skiftes for 3 timer siden"); tapping a part shows when the pump
+recorded the last change, when the next is due, and a choice of how many days the part lasts (1–10,
+3 by default for both; `PATCH /api/spaces/:id/pump/changes`). The change times are never typed:
+each pump run also reads the newest `Site Change` and `Insulin Change` treatments of the last 14
+days. tconnectsync writes every fill as `Site Change` with `notes` "Cartridge Filled …", "Cannula
+Filled …" or "Tubing Filled …" (its `PUMP_EVENTS` feature must be on); the cartridge fill is the
+reservoir, the cannula fill the site, and a tubing fill is skipped. A `Site Change` without those
+words (careportal, other uploaders) counts as the site, and `Insulin Change` as the reservoir. The
+newest of each moves `Space.pumpCartridgeAt` or `pumpCannulaAt` forward only (migration
+`0008_pump_changes`, which also adds `pumpCartridgeDays` and `pumpCannulaDays`) and emits
+`pump.changes` in the glucose group. A failure reading the changes logs `pump.changes-failed` and
+leaves the bolus run and the connection status alone. When the card says "Intet skift fra pumpen
+endnu", check that tconnectsync runs with `PUMP_EVENTS` and that the site holds `Site Change`
+treatments.
 
 **Troubleshooting.** Each run writes one `pump.cycle` line (`count` new boluses, `code` `ok` or
 `<n>-failed`), one `pump.space` line per space that worked, and `pump.space-failed` with

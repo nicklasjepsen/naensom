@@ -387,9 +387,7 @@ describe("NightscoutPumpSource.fetchBolusesSince", () => {
       pump_event_id: "older",
     };
     const h = pump((_call, index) =>
-      index === 0
-        ? { body: JSON.stringify(full) }
-        : { body: JSON.stringify([unreadable, older]) },
+      index === 0 ? { body: JSON.stringify(full) } : { body: JSON.stringify([unreadable, older]) },
     );
     const boluses = await h.source.fetchBolusesSince(new Date(now.getTime() - DAY));
     expect(h.calls).toHaveLength(2);
@@ -500,8 +498,10 @@ describe("the pump source is read-only", () => {
     expect(functionMembers(source)).toEqual(
       [
         "fetchBolusesSince",
+        "fetchChangesSince",
         "probe",
-        "readPage", // one allow-listed GET of treatments.json
+        "readPage", // a page of boluses from readRows
+        "readRows", // one allow-listed GET of treatments.json
         "fetch", // the injected fetch; only the transport calls it (lint)
         "now", // the injected clock
       ].sort(),
@@ -511,5 +511,100 @@ describe("the pump source is read-only", () => {
         /^(post|put|patch|delete|remove|create|update|upload|send|write|set|add|replace)/i,
       );
     }
+  });
+});
+
+describe("NightscoutPumpSource.fetchChangesSince", () => {
+  /** What tconnectsync writes for a reservoir change: three Site Change fills a minute apart. */
+  const tconnect = JSON.stringify([
+    {
+      _id: "a3",
+      eventType: "Site Change",
+      created_at: "2026-10-14T09:02:00.000Z",
+      notes: "Tubing Filled (12u primed)",
+      reason: "Tubing Filled (12u primed)",
+      pump_event_id: "903",
+    },
+    {
+      _id: "a2",
+      eventType: "Site Change",
+      created_at: "2026-10-14T09:05:00.000Z",
+      notes: "Cannula Filled (0.3u primed)",
+      reason: "Cannula Filled (0.3u primed)",
+      pump_event_id: "904",
+    },
+    {
+      _id: "a1",
+      eventType: "Site Change",
+      created_at: "2026-10-14T09:00:00.000Z",
+      notes: "Cartridge Filled (200u filled)",
+      reason: "Cartridge Filled (200u filled)",
+      pump_event_id: "902",
+    },
+    { eventType: "Site Change", created_at: "not a time", pump_event_id: "905" },
+  ]);
+
+  it("asks for Site Change and Insulin Change only, on the allow-listed read", async () => {
+    const h = pump((call) =>
+      call.url.searchParams.get("find[eventType]") === "Site Change"
+        ? { body: tconnect }
+        : { body: "[]" },
+    );
+    await h.source.fetchChangesSince(new Date(now.getTime() - 14 * DAY));
+    expect(h.calls.map((c) => c.url.searchParams.get("find[eventType]"))).toEqual([
+      "Site Change",
+      "Insulin Change",
+    ]);
+    for (const call of h.calls) {
+      expect(call.method).toBe("GET");
+      expect(call.url.pathname).toBe("/api/v1/treatments.json");
+      expect(call.url.searchParams.get("count")).toBe("30");
+    }
+  });
+
+  it("reads tconnectsync's fills as a cartridge and a cannula, oldest first, and skips the tubing", async () => {
+    const h = pump((call) =>
+      call.url.searchParams.get("find[eventType]") === "Site Change"
+        ? { body: tconnect }
+        : { body: "[]" },
+    );
+    const changes = await h.source.fetchChangesSince(new Date(now.getTime() - 14 * DAY));
+    expect(changes).toEqual([
+      { sourceId: "pump:902", kind: "cartridge", ts: "2026-10-14T09:00:00.000Z" },
+      { sourceId: "pump:904", kind: "cannula", ts: "2026-10-14T09:05:00.000Z" },
+    ]);
+  });
+
+  it("reads a careportal Insulin Change as the reservoir and a bare Site Change as the site", async () => {
+    const h = pump((call) =>
+      call.url.searchParams.get("find[eventType]") === "Site Change"
+        ? {
+            body: JSON.stringify([
+              { _id: "c1", eventType: "Site Change", created_at: "2026-10-13T20:00:00Z" },
+            ]),
+          }
+        : {
+            body: JSON.stringify([
+              {
+                _id: "c2",
+                eventType: "Insulin Change",
+                created_at: "2026-10-13T20:10:00Z",
+                notes: "",
+              },
+            ]),
+          },
+    );
+    const changes = await h.source.fetchChangesSince(new Date(now.getTime() - 14 * DAY));
+    expect(changes).toEqual([
+      { sourceId: "ns:c1", kind: "cannula", ts: "2026-10-13T20:00:00.000Z" },
+      { sourceId: "ns:c2", kind: "cartridge", ts: "2026-10-13T20:10:00.000Z" },
+    ]);
+  });
+
+  it("fails like the bolus read when the site refuses", async () => {
+    const h = pump({ status: 401, body: "" });
+    await expect(h.source.fetchChangesSince(new Date(now.getTime() - DAY))).rejects.toBeInstanceOf(
+      NightscoutError,
+    );
   });
 });

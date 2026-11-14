@@ -1,0 +1,100 @@
+/* "Pumpeskift" on Nu: two rows, each opening to the last change. */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+}
+
+.title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.item + .item {
+  border-top: 1px solid var(--hairline);
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: var(--touch-min);
+  padding: 8px 0;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  font-size: 16px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.row:focus-visible {
+  outline: 2px solid var(--accent-base);
+  outline-offset: 2px;
+  border-radius: var(--radius-button-small);
+}
+
+.name {
+  font-weight: 700;
+}
+
+.when {
+  color: var(--text-muted);
+  text-align: right;
+}
+
+/* Past due: the accent ink, never red; a reminder, not an alarm. */
+.when[data-overdue="true"] {
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 0 12px;
+  font-size: 15px;
+  color: var(--text-muted);
+}
+
+.days {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.days select {
+  min-height: var(--touch-min);
+  /* 16 px so iOS does not zoom into the field. */
+  font: inherit;
+  font-size: 16px;
+  padding: 0 8px;
+  border-radius: var(--radius-button-small);
+  border: 1px solid var(--hairline-strong);
+  background: var(--surface-input);
+  color: var(--text);
+}
+
+.failed {
+  color: var(--destructive);
+}
+
+.hint {
+  font-size: 13px;
+  color: var(--text-muted);
+}

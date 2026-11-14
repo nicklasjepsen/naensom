@@ -168,11 +168,9 @@ export {
   type SuggestionFinding,
   type UnitAmountFinding,
 } from "./dosing-vocabulary";
+export { NightscoutPumpSource, type NightscoutPumpSourceOptions } from "./glucose/nightscout/index";
 export {
-  NightscoutPumpSource,
-  type NightscoutPumpSourceOptions,
-} from "./glucose/nightscout/index";
-export {
+  PUMP_CHANGES_DAYS,
   PUMP_CONCURRENCY,
   PUMP_FAILURES_BEFORE_DISCONNECTED,
   PUMP_FIRST_RUN_DAYS,
@@ -190,8 +188,10 @@ export {
 export {
   PUMP_MEAL_SOURCE,
   PUMP_TX_TIMEOUT_MS,
+  CHANGE_COLUMNS,
   commitPumpDay,
   createPumpWriter,
+  writePumpChanges,
   pumpMealData,
   type PumpDb,
   type PumpSpaceRow,

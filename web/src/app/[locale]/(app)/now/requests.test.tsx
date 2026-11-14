@@ -139,11 +139,13 @@ it.each(["owner", "carer"] as const)(
         "symptoms/kinds",
         // The pump record for both curves (v0.7.0 plan §9), owners and carers only.
         "pump",
+        // When the reservoir and the site are next due, from the same record.
+        "pump/changes",
       ]),
     );
     // One window, read once: from 03:00 (three hours before the day's 06:00) to 25 hours after
     // that 06:00, the longest local day.
-    expect(net.calls.filter((url) => url.includes("/pump"))).toEqual([
+    expect(net.calls.filter((url) => url.includes("/pump?"))).toEqual([
       `/api/spaces/s1/pump?${new URLSearchParams({
         from: "2026-10-14T01:00:00.000Z",
         to: "2026-10-15T05:00:00.000Z",
