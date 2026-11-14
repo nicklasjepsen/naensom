@@ -13,6 +13,12 @@ export const STALE_AFTER_SECONDS = 15 * 60;
 /** Two readings further apart than this have no meaningful change between them. */
 export const MAX_DELTA_GAP_MS = 12 * 60_000;
 
+/**
+ * Two readings closer together than this are one sensor reading that reached Nightscout twice
+ * (two uploaders, each with its own timestamp), never a change worth showing.
+ */
+export const MIN_DELTA_GAP_MS = 2 * 60_000;
+
 export interface Entry {
   /** Unix milliseconds. */
   date: number;
@@ -38,6 +44,17 @@ export interface ActivityAttributes {
 }
 
 export const DEFAULT_ATTRIBUTES: ActivityAttributes = { unit: "mmolL" };
+
+/**
+ * The entry to compare the newest with, from entries newest first: the newest one taken at least
+ * `MIN_DELTA_GAP_MS` before it, so a second copy of the same reading a few seconds older never turns
+ * the change into 0. The same rule as the app's `Glucose.previousReading`.
+ */
+export function previousEntry<T extends Entry>(entries: readonly T[]): T | undefined {
+  const [current, ...rest] = entries;
+  if (current === undefined) return undefined;
+  return rest.find((entry) => current.date - entry.date >= MIN_DELTA_GAP_MS);
+}
 
 export function contentState(current: Entry, previous: Entry | undefined): ContentState {
   const gap = previous === undefined ? -1 : current.date - previous.date;

@@ -30,7 +30,7 @@ final class FollowModel: ObservableObject {
     private var siteThresholdsRead = false
 
     var latest: Reading? { readings.first }
-    var previous: Reading? { readings.dropFirst().first }
+    var previous: Reading? { Glucose.previousReading(readings) }
 
     /// Changes whenever the source does, for `.task(id:)`.
     var sourceKey: String { source.map { $0.stored.site } ?? "" }

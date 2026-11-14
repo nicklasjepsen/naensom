@@ -178,6 +178,13 @@ describe("checkSubscription: the Live Activity update", () => {
     });
   });
 
+  it("compares with the reading before, not a second copy of the newest a few seconds older", async () => {
+    const copy = { ...entry(1, 120), date: T0 - min - 7_000 };
+    const h = harness([row({ deviceToken: null })], { entries: [entry(1, 120), copy, entry(6, 126)] });
+    await expect(checkSubscription(h.deps, row({ deviceToken: null }))).resolves.toBe("pushed");
+    expect(aps(must(h.sent[0]))).toMatchObject({ "content-state": { mgdl: 120, delta: -6 } });
+  });
+
   it("sends nothing when the newest reading is the one already pushed, and checks every minute", async () => {
     const r = row({ lastReadingAt: new Date(T0 - 6 * min), deviceToken: null });
     const h = harness([r], { entries: [entry(6, 115)] });

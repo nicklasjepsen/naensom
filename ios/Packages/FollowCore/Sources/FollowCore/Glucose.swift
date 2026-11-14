@@ -79,6 +79,19 @@ public enum Glucose {
     /// Two readings further apart than this have no meaningful change between them.
     public static let maxDeltaGap: TimeInterval = 12 * 60
 
+    /// Two readings closer together than this are one sensor reading that reached Nightscout
+    /// twice (two uploaders, each with its own timestamp), never a change worth showing.
+    public static let minDeltaGap: TimeInterval = 2 * 60
+
+    /// The reading to compare the newest with, from readings newest first: the newest one taken
+    /// at least `minDeltaGap` before it, so a second copy of the same reading a few seconds older
+    /// never turns the change into 0. Nil when there is none; `formatDelta` and `deltaMgdl` still
+    /// drop one more than 12 minutes old.
+    public static func previousReading(_ readings: [Reading]) -> Reading? {
+        guard let current = readings.first else { return nil }
+        return readings.dropFirst().first { current.at.timeIntervalSince($0.at) >= minDeltaGap }
+    }
+
     public static func toMmolL(_ mgdl: Int) -> Double {
         (Double(mgdl) / mgdlPerMmolL * 10).rounded(.toNearestOrAwayFromZero) / 10
     }

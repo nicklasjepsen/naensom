@@ -176,4 +176,9 @@ final class WidgetFeedTests: XCTestCase {
         XCTAssertEqual(WidgetTimeline.merge(stored, fetched: [], site: site), stored)
         XCTAssertNil(WidgetTimeline.merge(nil, fetched: [], site: site))
     }
+
+    func testTheWidgetsChangeSkipsASecondCopyOfTheNewestReading() {
+        let fetched = [reading(1, 150), reading(1.1, 150), reading(6, 140)]
+        XCTAssertEqual(WidgetTimeline.merge(nil, fetched: fetched, site: site), snapshot(1, 150, previous: reading(6, 140)))
+    }
 }

@@ -30,6 +30,7 @@ import {
   alertPayload,
   contentState,
   endPayload,
+  previousEntry,
   STALE_AFTER_SECONDS,
   startPayload,
   updatePayload,
@@ -460,7 +461,8 @@ export async function checkSubscription(deps: RelayDeps, row: LiveRow): Promise<
     return "read-failed";
   }
 
-  const [newest, previous] = entries;
+  const newest = entries[0];
+  const previous = previousEntry(entries);
   let outcome: CheckOutcome = "unchanged";
   let newestReadingAt = known;
   pass.patch.failures = 0;

@@ -8,6 +8,7 @@ import {
   ACTIVITY_ATTRIBUTES_TYPE,
   DEFAULT_ATTRIBUTES,
   contentState,
+  previousEntry,
   endPayload,
   startPayload,
   updatePayload,
@@ -36,6 +37,23 @@ describe("contentState", () => {
     ).toBeNull();
     expect(contentState(previous, current).delta).toBeNull();
     expect(contentState(current, { ...previous, mgdl: 160 }).delta).toBe(-9);
+  });
+});
+
+describe("previousEntry", () => {
+  it("skips a second copy of the newest reading and compares with the one before", () => {
+    // Two uploaders send every reading, a few seconds apart: the change must not read 0.
+    const copy = { ...current, date: current.date - 7_000 };
+    const older = { ...previous, mgdl: 160 };
+    expect(previousEntry([current, copy, older])).toBe(older);
+    expect(contentState(current, previousEntry([current, copy, older])).delta).toBe(-9);
+  });
+
+  it("takes the next reading when there is no copy, and nothing without one", () => {
+    expect(previousEntry([current, previous])).toBe(previous);
+    expect(previousEntry([current, { ...current, date: current.date - 60_000 }])).toBeUndefined();
+    expect(previousEntry([current])).toBeUndefined();
+    expect(previousEntry<typeof current>([])).toBeUndefined();
   });
 });
 

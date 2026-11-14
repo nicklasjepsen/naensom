@@ -131,7 +131,7 @@ public enum WidgetTimeline {
     /// The newer of the stored snapshot and what the site answered (newest first).
     public static func merge(_ stored: GlucoseSnapshot?, fetched: [Reading], site: String) -> GlucoseSnapshot? {
         guard let newest = fetched.first else { return stored }
-        let fresh = GlucoseSnapshot(site: site, current: newest, previous: fetched.dropFirst().first)
+        let fresh = GlucoseSnapshot(site: site, current: newest, previous: Glucose.previousReading(fetched))
         return GlucoseSnapshot.shouldReplace(stored, with: fresh) ? fresh : stored
     }
 

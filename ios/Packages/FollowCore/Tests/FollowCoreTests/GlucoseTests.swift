@@ -24,6 +24,25 @@ final class GlucoseTests: XCTestCase {
         XCTAssertEqual(Glucose.format(151, unit: .mgdL, locale: da), "151")
     }
 
+    func testThePreviousReadingSkipsASecondCopyOfTheNewest() {
+        // Two uploaders send every reading to Nightscout, seconds apart: comparing the newest with
+        // its own copy showed "+0.0" while the curve fell.
+        let current = Reading(at: now, mgdl: 88, direction: "FortyFiveDown")
+        let copy = Reading(at: now.addingTimeInterval(-7), mgdl: 88, direction: "FortyFiveDown")
+        let fiveMinAgo = Reading(at: now.addingTimeInterval(-300), mgdl: 95, direction: "FortyFiveDown")
+        let fiveMinAgoCopy = Reading(at: now.addingTimeInterval(-306), mgdl: 95, direction: "FortyFiveDown")
+        let readings = [current, copy, fiveMinAgo, fiveMinAgoCopy]
+
+        XCTAssertEqual(Glucose.previousReading(readings), fiveMinAgo)
+        XCTAssertEqual(
+            Glucose.formatDelta(current, previous: Glucose.previousReading(readings), unit: .mmolL, locale: en), "−0.4"
+        )
+        XCTAssertEqual(Glucose.previousReading([current, fiveMinAgo]), fiveMinAgo, "no copy: the next reading")
+        XCTAssertNil(Glucose.previousReading([current, copy]), "only a copy: no change")
+        XCTAssertNil(Glucose.previousReading([current]))
+        XCTAssertNil(Glucose.previousReading([]))
+    }
+
     func testDeltaIsSignedAndNilWhenTheReadingsAreTooFarApart() {
         let current = Reading(at: now, mgdl: 151, direction: "Flat")
         let fiveMinAgo = Reading(at: now.addingTimeInterval(-300), mgdl: 145, direction: "Flat")
