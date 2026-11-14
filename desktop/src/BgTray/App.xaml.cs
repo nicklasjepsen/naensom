@@ -81,7 +81,7 @@ public partial class App : Application
         _fetching = true;
         try
         {
-            var readings = await _client.GetLatestAsync(_settings.SiteUrl, _settings.Token);
+            var readings = await _client.GetLatestAsync(_settings.SiteUrl, _settings.Token, count: 4);
             if (readings.Count == 0)
             {
                 _problem = "The site has no readings";
@@ -89,7 +89,7 @@ public partial class App : Application
             else
             {
                 _latest = readings[0];
-                _previous = readings.Count > 1 ? readings[1] : null;
+                _previous = Glucose.PreviousReading(readings);
                 _problem = null;
             }
         }

@@ -44,6 +44,22 @@ public static class Glucose
 
     public static string UnitLabel(GlucoseUnit unit) => unit == GlucoseUnit.MmolL ? "mmol/L" : "mg/dL";
 
+    /// <summary>
+    /// The reading to compare the newest with, from readings newest first: the newest one taken at
+    /// least 2 minutes before it. A phone and a watch both uploading send every reading twice, seconds
+    /// apart, and comparing the newest with its own copy would show a change of 0.
+    /// </summary>
+    public static Reading? PreviousReading(IReadOnlyList<Reading> readings)
+    {
+        if (readings.Count == 0) return null;
+        var current = readings[0];
+        for (var i = 1; i < readings.Count; i++)
+        {
+            if (current.At - readings[i].At >= TimeSpan.FromMinutes(2)) return readings[i];
+        }
+        return null;
+    }
+
     /// <summary>The change since the previous reading, signed, in the chosen unit; null without a previous reading close enough to compare.</summary>
     public static string? FormatDelta(Reading current, Reading? previous, GlucoseUnit unit, CultureInfo? culture = null)
     {

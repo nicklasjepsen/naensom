@@ -39,6 +39,20 @@ public class GlucoseTests
         Assert.Null(Glucose.FormatDelta(current, null, GlucoseUnit.MmolL, En));
     }
 
+    [Fact]
+    public void ThePreviousReadingSkipsASecondCopyOfTheNewest()
+    {
+        // A phone and a watch both upload: every reading reaches Nightscout twice, seconds apart.
+        var current = new Reading(Now, 88, "FortyFiveDown");
+        var copy = new Reading(Now.AddSeconds(-7), 88, "FortyFiveDown");
+        var fiveMinAgo = new Reading(Now.AddMinutes(-5), 95, "FortyFiveDown");
+        Assert.Equal(fiveMinAgo, Glucose.PreviousReading([current, copy, fiveMinAgo]));
+        Assert.Equal("−0.4", Glucose.FormatDelta(current, Glucose.PreviousReading([current, copy, fiveMinAgo]), GlucoseUnit.MmolL, En));
+        Assert.Equal(fiveMinAgo, Glucose.PreviousReading([current, fiveMinAgo]));
+        Assert.Null(Glucose.PreviousReading([current, copy]));
+        Assert.Null(Glucose.PreviousReading([]));
+    }
+
     [Theory]
     [InlineData("Flat", "→")]
     [InlineData("FortyFiveUp", "↗")]
