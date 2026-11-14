@@ -84,7 +84,7 @@ public enum Setup {
 
 /// Where the app's readings come from: Nightscout, or the demo curve with no network.
 public struct ReadingFeed: Sendable {
-    private let client: NightscoutClient
+    let client: NightscoutClient
 
     public init(client: NightscoutClient) {
         self.client = client

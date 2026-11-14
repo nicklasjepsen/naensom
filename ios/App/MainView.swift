@@ -23,6 +23,7 @@ struct MainView: View {
                     ReadingHeader()
                     LiveActivityBanner()
                     CurveSection()
+                    PumpChangesSection()
                     if follow.source?.isDemo == true {
                         Label(L("main.demo"), systemImage: "theatermasks")
                             .font(.footnote)
@@ -141,6 +142,96 @@ private struct LiveActivityBanner: View {
                     .foregroundStyle(.orange)
             }
         }
+    }
+}
+
+/// "Pumpeskift": when the reservoir and the site are next due, in plain words ("Skiftes om 1 dag").
+/// Tapping a part shows when the pump recorded the last change, when the next is due, and how many
+/// days it lasts. Shown only once the site has sent a change; past due reads in the plain text
+/// colour with a clock symbol, a reminder and not an alarm.
+private struct PumpChangesSection: View {
+    @EnvironmentObject private var app: AppModel
+    @EnvironmentObject private var follow: FollowModel
+    @State private var open: PumpPart?
+
+    var body: some View {
+        if let changes = follow.pumpChanges, !changes.isEmpty {
+            TimelineView(.periodic(from: .now, by: 60)) { context in
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(L("changes.title"))
+                        .font(.headline)
+                        .padding(.bottom, 4)
+                    ForEach(PumpPart.allCases, id: \.self) { part in
+                        if part != .cartridge { Divider() }
+                        row(part, lastAt: changes[part], now: context.date)
+                    }
+                    Text(L("changes.fromPump"))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 6)
+                }
+                .padding(14)
+                .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func row(_ part: PumpPart, lastAt: Date?, now: Date) -> some View {
+        let days = follow.settings.days(for: part)
+        let dueAt = PumpCountdown.dueAt(lastAt: lastAt, days: days)
+        let countdown = PumpCountdown.to(dueAt, now: now)
+        let expanded = open == part
+        VStack(alignment: .leading, spacing: 6) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) { open = expanded ? nil : part }
+            } label: {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(part == .cartridge ? L("changes.cartridge") : L("changes.cannula")).fontWeight(.semibold)
+                    Spacer(minLength: 12)
+                    if countdown.isPastDue {
+                        Image(systemName: "clock.badge.exclamationmark").foregroundStyle(.secondary)
+                    }
+                    Text(countdown.text(in: AppLanguage.current))
+                        .fontWeight(countdown.isPastDue ? .semibold : .regular)
+                        .foregroundStyle(countdown.isPastDue ? Color.primary : Color.secondary)
+                        .multilineTextAlignment(.trailing)
+                    Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint(L("changes.hint"))
+            if expanded {
+                Group {
+                    if let lastAt {
+                        Text(L("changes.last", Self.time(lastAt)))
+                    } else {
+                        Text(L("changes.noneYet"))
+                    }
+                    if let dueAt {
+                        Text(L("changes.next", Self.time(dueAt)))
+                    }
+                    Picker(L("changes.lasts"), selection: Binding(get: { days }, set: { app.setChangeDays($0, for: part) })) {
+                        ForEach(Array(PumpCountdown.dayChoices), id: \.self) { n in
+                            Text(n == 1 ? L("changes.day", n) : L("changes.days", n)).tag(n)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .padding(.bottom, 8)
+            }
+        }
+    }
+
+    /// "lør. 14. nov. 09.12" / "Sat 14 Nov 09:12" in the phone's own time zone.
+    private static func time(_ date: Date) -> String {
+        date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated).hour().minute().locale(AppLanguage.locale))
     }
 }
 

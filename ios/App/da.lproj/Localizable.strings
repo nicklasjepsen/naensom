@@ -117,3 +117,16 @@
 "settings.layout.age.words" = "Med ord (5 min. siden)";
 "settings.layout.age.timer" = "Som ur (5:03)";
 "settings.layout.footer" = "Værdien og dens alder vises altid, så en gammel værdi aldrig ligner en ny. Ændringer ses på låseskærmen med det samme.";
+
+/* Reservoir and site countdown */
+"changes.title" = "Pumpeskift";
+"changes.cartridge" = "Reservoir";
+"changes.cannula" = "Kanyle";
+"changes.last" = "Sidst skiftet %@";
+"changes.next" = "Næste gang %@";
+"changes.noneYet" = "Pumpen har ikke sendt et skift endnu.";
+"changes.lasts" = "Holder";
+"changes.day" = "%ld dag";
+"changes.days" = "%ld dage";
+"changes.fromPump" = "Tiderne kommer fra pumpen.";
+"changes.hint" = "Viser hvornår der sidst blev skiftet";

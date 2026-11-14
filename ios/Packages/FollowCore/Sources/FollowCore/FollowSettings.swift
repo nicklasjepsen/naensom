@@ -11,21 +11,43 @@ public struct FollowSettings: Codable, Equatable, Sendable {
     /// Off until the user turns it on and allows notifications.
     public var alertsOn: Bool
     public var curveWindow: CurveWindow
+    /// How many days the reservoir and the site last before the countdown says they are due.
+    public var cartridgeDays: Int
+    public var cannulaDays: Int
 
     public static let defaults = FollowSettings(unit: .mmolL, liveActivityOn: true, alertsOn: false, curveWindow: .sixHours)
 
     public init(
-        unit: GlucoseUnit, liveActivityOn: Bool, alertsOn: Bool, curveWindow: CurveWindow
+        unit: GlucoseUnit, liveActivityOn: Bool, alertsOn: Bool, curveWindow: CurveWindow,
+        cartridgeDays: Int = PumpCountdown.defaultDays, cannulaDays: Int = PumpCountdown.defaultDays
     ) {
         self.unit = unit
         self.liveActivityOn = liveActivityOn
         self.alertsOn = alertsOn
         self.curveWindow = curveWindow
+        self.cartridgeDays = Self.clampDays(cartridgeDays)
+        self.cannulaDays = Self.clampDays(cannulaDays)
+    }
+
+    /// The interval for one part.
+    public func days(for part: PumpPart) -> Int {
+        part == .cartridge ? cartridgeDays : cannulaDays
+    }
+
+    public mutating func setDays(_ days: Int, for part: PumpPart) {
+        switch part {
+        case .cartridge: cartridgeDays = Self.clampDays(days)
+        case .cannula: cannulaDays = Self.clampDays(days)
+        }
+    }
+
+    static func clampDays(_ days: Int) -> Int {
+        min(max(days, PumpCountdown.dayChoices.lowerBound), PumpCountdown.dayChoices.upperBound)
     }
 
     /// A copy saved by an earlier build may still hold `autoStartLiveActivity`; it is ignored.
     private enum CodingKeys: String, CodingKey {
-        case unit, liveActivityOn, alertsOn, curveWindow
+        case unit, liveActivityOn, alertsOn, curveWindow, cartridgeDays, cannulaDays
     }
 
     public init(from decoder: Decoder) throws {
@@ -35,6 +57,8 @@ public struct FollowSettings: Codable, Equatable, Sendable {
         liveActivityOn = (try? container.decodeIfPresent(Bool.self, forKey: .liveActivityOn)) ?? fallback.liveActivityOn
         alertsOn = (try? container.decodeIfPresent(Bool.self, forKey: .alertsOn)) ?? fallback.alertsOn
         curveWindow = (try? container.decodeIfPresent(CurveWindow.self, forKey: .curveWindow)) ?? fallback.curveWindow
+        cartridgeDays = Self.clampDays((try? container.decodeIfPresent(Int.self, forKey: .cartridgeDays)) ?? fallback.cartridgeDays)
+        cannulaDays = Self.clampDays((try? container.decodeIfPresent(Int.self, forKey: .cannulaDays)) ?? fallback.cannulaDays)
     }
 
     /// The stored copy, or the defaults when there is none or it cannot be read.

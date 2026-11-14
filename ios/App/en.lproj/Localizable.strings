@@ -117,3 +117,16 @@
 "settings.layout.age.words" = "In words (5 min ago)";
 "settings.layout.age.timer" = "As a timer (5:03)";
 "settings.layout.footer" = "The value and its age are always shown, so an old value never looks current. Changes show on the lock screen at once.";
+
+/* Reservoir and site countdown */
+"changes.title" = "Pump changes";
+"changes.cartridge" = "Reservoir";
+"changes.cannula" = "Site";
+"changes.last" = "Last changed %@";
+"changes.next" = "Next due %@";
+"changes.noneYet" = "The pump has not sent a change yet.";
+"changes.lasts" = "Lasts";
+"changes.day" = "%ld day";
+"changes.days" = "%ld days";
+"changes.fromPump" = "The times come from the pump.";
+"changes.hint" = "Shows when it was last changed";

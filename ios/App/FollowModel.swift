@@ -14,6 +14,10 @@ final class FollowModel: ObservableObject {
     /// The colour thresholds in force (ThresholdStore: the user's, the site's, or Nightscout's defaults).
     @Published private(set) var thresholds: GlucoseThresholds = ThresholdStore.current
     @Published private(set) var settings: FollowSettings = SettingsStore.load()
+    /// The newest reservoir and site fill the pump recorded, or nil before the first read or when the
+    /// site cannot give them (no pump events, a token without access to treatments).
+    @Published private(set) var pumpChanges: PumpChanges?
+    private var pumpChangesReadAt: Date?
 
     /// Called with the newest reading whenever a fetch brings a newer one.
     var onNewReading: ((Reading, Reading?) -> Void)?
@@ -42,6 +46,8 @@ final class FollowModel: ObservableObject {
         siteThresholdsRead = false
         readings = []
         error = nil
+        pumpChanges = nil
+        pumpChangesReadAt = nil
         thresholds = ThresholdStore.current
         self.source = source
     }
@@ -59,6 +65,8 @@ final class FollowModel: ObservableObject {
         source = nil
         readings = []
         error = nil
+        pumpChanges = nil
+        pumpChangesReadAt = nil
         thresholds = ThresholdStore.current
         settings = SettingsStore.load()
     }
@@ -79,6 +87,11 @@ final class FollowModel: ObservableObject {
             if !siteThresholdsRead, case .nightscout = source {
                 siteThresholdsRead = true
                 Task { await readSiteThresholds(generation: asked) }
+            }
+            // The pump uploads changes about hourly; a quarter of an hour between reads is plenty.
+            if pumpChangesReadAt.map({ now.timeIntervalSince($0) >= 15 * 60 }) ?? true {
+                pumpChangesReadAt = now
+                Task { await readPumpChanges(source, generation: asked, now: now) }
             }
         } catch {
             guard asked == generation else { return }
@@ -107,6 +120,14 @@ final class FollowModel: ObservableObject {
         let before = thresholds
         thresholds = ThresholdStore.current
         if thresholds != before { onThresholdsChanged?() }
+    }
+
+    /// The reservoir and site countdown is a help beside the value: a failure leaves what was shown
+    /// and never shows an error.
+    private func readPumpChanges(_ source: FollowSource, generation asked: Int, now: Date) async {
+        let found = try? await feed.pumpChanges(source, now: now)
+        guard asked == generation else { return }
+        if let found { pumpChanges = found }
     }
 
     // MARK: - Settings
