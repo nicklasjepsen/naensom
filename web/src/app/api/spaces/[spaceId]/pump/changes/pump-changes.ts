@@ -33,8 +33,11 @@ function configured(pumpSource: string | null): boolean {
   }
 }
 
-function part(lastAt: Date | null, days: number) {
-  if (lastAt === null) return { days };
+/** A stored time more than this after now never happened; it reads as no change yet. */
+const FUTURE_SLACK_MS = 10 * 60_000;
+
+function part(lastAt: Date | null, days: number, now: Date) {
+  if (lastAt === null || lastAt.getTime() > now.getTime() + FUTURE_SLACK_MS) return { days };
   return {
     lastAt: lastAt.toISOString(),
     dueAt: new Date(lastAt.getTime() + days * DAY_MS).toISOString(),
@@ -43,11 +46,11 @@ function part(lastAt: Date | null, days: number) {
 }
 
 /** The view of the row: each part's last fill, when it is due, its interval; never the config. */
-export function toPumpChangesView(row: PumpChangesRow): PumpChangesView {
+export function toPumpChangesView(row: PumpChangesRow, now: Date): PumpChangesView {
   return PumpChangesView.parse({
-    cartridge: part(row.pumpCartridgeAt, row.pumpCartridgeDays),
-    cannula: part(row.pumpCannulaAt, row.pumpCannulaDays),
-    sensor: part(row.pumpSensorAt, row.pumpSensorDays),
+    cartridge: part(row.pumpCartridgeAt, row.pumpCartridgeDays, now),
+    cannula: part(row.pumpCannulaAt, row.pumpCannulaDays, now),
+    sensor: part(row.pumpSensorAt, row.pumpSensorDays, now),
     configured: configured(row.pumpSource),
   });
 }
@@ -63,7 +66,7 @@ export function savePumpChangeDays(
 ): Promise<PumpChangesView> {
   return run(
     deps,
-    async (tx, emit) => {
+    async (tx, emit, now) => {
       const current = await tx.space.findUnique({ where: { id: spaceId } });
       if (!current) throw new HttpError(404, "not-found");
       const data: {
@@ -84,10 +87,10 @@ export function savePumpChangeDays(
         data.pumpSensorDays = body.sensorDays;
         kinds.push("sensor");
       }
-      if (kinds.length === 0) return toPumpChangesView(current);
+      if (kinds.length === 0) return toPumpChangesView(current, now());
       const row = await tx.space.update({ where: { id: spaceId }, data });
       await emit(spaceId, "pump.changes", { kinds });
-      return toPumpChangesView(row);
+      return toPumpChangesView(row, now());
     },
     { serializable: true },
   );

@@ -163,7 +163,7 @@ extension NightscoutClient {
             let (body, status) = try await transport.send(request)
             if status == 401 || status == 403 { throw NightscoutError.tokenRefused }
             guard (200..<300).contains(status) else { throw NightscoutError.status(status) }
-            for (part, at) in try Self.parseChanges(body, eventType: eventType) {
+            for (part, at) in try Self.parseChanges(body, eventType: eventType, now: now) {
                 switch part {
                 case .cartridge: changes.cartridgeAt = max(changes.cartridgeAt ?? at, at)
                 case .cannula: changes.cannulaAt = max(changes.cannulaAt ?? at, at)
@@ -174,9 +174,14 @@ extension NightscoutClient {
         return changes
     }
 
-    /// The part each record of `eventType` is about, with its time. A tubing fill, another type,
-    /// or a record without a readable `created_at` is skipped; anything not an array is refused.
-    public static func parseChanges(_ data: Data, eventType: String) throws -> [(PumpPart, Date)] {
+    /// A change dated more than this after now did not happen yet (a pump clock or an uploader sent
+    /// a future time) and is skipped.
+    public static let changeFutureSlack: TimeInterval = 10 * 60
+
+    /// The part each record of `eventType` is about, with its time. A tubing fill, another type, a
+    /// record without a readable `created_at`, or one dated more than ten minutes ahead of `now` is
+    /// skipped; anything not an array is refused.
+    public static func parseChanges(_ data: Data, eventType: String, now: Date = Date()) throws -> [(PumpPart, Date)] {
         guard let root = try? JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed]),
               let array = root as? [Any]
         else { throw NightscoutError.notNightscout }
@@ -184,6 +189,7 @@ extension NightscoutClient {
         for case let entry as [String: Any] in array {
             guard let type = entry["eventType"] as? String, type == eventType,
                   let created = entry["created_at"] as? String, let at = parseDate(created),
+                  at <= now.addingTimeInterval(changeFutureSlack),
                   let part = part(eventType: type, notes: entry["notes"], reason: entry["reason"])
             else { continue }
             out.append((part, at))

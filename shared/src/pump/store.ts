@@ -162,7 +162,10 @@ type ChangeColumn = (typeof CHANGE_COLUMNS)[PumpChangeKind];
 export interface ChangeTx extends EmitTx {
   space: EmitTx["space"] & {
     updateMany(args: {
-      where: { id: string; OR: Partial<Record<ChangeColumn, null | { lt: Date }>>[] };
+      where: {
+        id: string;
+        OR: Partial<Record<ChangeColumn, null | { lt: Date } | { gt: Date }>>[];
+      };
       data: Partial<Record<ChangeColumn, Date>>;
     }): Promise<{ count: number }>;
   };
@@ -671,14 +674,15 @@ export async function writePumpStatus(
 }
 
 /**
- * The newest fill of each part, written when it is newer than the stored one, and one
+ * The newest change of each part, written when it is newer than the stored one (or the stored one
+ * is dated ahead of now), and one
  * `pump.changes` naming the parts that moved, in one commit. A fill already stored, or older than
  * it, writes and emits nothing. Returns the parts that moved.
  */
 export async function writePumpChanges(
   tx: ChangeTx,
   emit: EmitFn,
-  input: { spaceId: string; changes: readonly PumpChange[] },
+  input: { spaceId: string; changes: readonly PumpChange[]; now: Date },
 ): Promise<PumpChangeKind[]> {
   const newest = new Map<PumpChangeKind, Date>();
   for (const change of input.changes) {
@@ -690,7 +694,11 @@ export async function writePumpChanges(
   for (const [kind, ts] of newest) {
     const column = CHANGE_COLUMNS[kind];
     const { count } = await tx.space.updateMany({
-      where: { id: input.spaceId, OR: [{ [column]: null }, { [column]: { lt: ts } }] },
+      // A stored time ahead of now never happened (an earlier build kept one): any real one replaces it.
+      where: {
+        id: input.spaceId,
+        OR: [{ [column]: null }, { [column]: { lt: ts } }, { [column]: { gt: input.now } }],
+      },
       data: { [column]: ts },
     });
     if (count === 1) moved.push(kind);

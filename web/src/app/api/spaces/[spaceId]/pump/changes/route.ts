@@ -25,7 +25,7 @@ export const GET = settingsRoute<Params>(ROUTE, async (_request, { spaceId }) =>
   await requirePumpRole(spaceId, "owner", "carer");
   const row = await prisma.space.findUnique({ where: { id: spaceId } });
   if (!row) throw new HttpError(404, "not-found");
-  return json(toPumpChangesView(row));
+  return json(toPumpChangesView(row, new Date()));
 });
 
 /** How many days the reservoir and the site last; owners and carers. */

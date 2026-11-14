@@ -114,6 +114,12 @@ describe("GET /api/spaces/:id/pump/changes", () => {
     }
   });
 
+  it("reads a stored change dated ahead of now as no change yet", async () => {
+    Object.assign(space(), { pumpSensorAt: new Date(T0.getTime() + 6 * 86_400_000) });
+    const body = (await (await get("owner")).json()) as { sensor: unknown };
+    expect(body.sensor).toEqual({ days: 10 });
+  });
+
   it("says when no pump record is set up", async () => {
     Object.assign(space(), { pumpSource: null });
     const body = (await (await get("owner")).json()) as { configured: boolean };

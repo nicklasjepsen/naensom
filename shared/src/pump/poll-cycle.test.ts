@@ -92,12 +92,20 @@ function matches(row: Record<string, unknown>, where: Where, state: State): bool
     if (condition instanceof Date)
       return value instanceof Date && value.getTime() === condition.getTime();
     if (typeof condition !== "object") return value === condition;
-    const c = condition as { in?: unknown[]; gte?: Date; lte?: Date; lt?: Date; not?: unknown };
+    const c = condition as {
+      in?: unknown[];
+      gte?: Date;
+      lte?: Date;
+      lt?: Date;
+      gt?: Date;
+      not?: unknown;
+    };
     if (c.in !== undefined && !c.in.includes(value)) return false;
     const time = value instanceof Date ? value.getTime() : undefined;
     if (c.gte !== undefined && (time === undefined || time < c.gte.getTime())) return false;
     if (c.lte !== undefined && (time === undefined || time > c.lte.getTime())) return false;
     if (c.lt !== undefined && (time === undefined || time >= c.lt.getTime())) return false;
+    if (c.gt !== undefined && (time === undefined || time <= c.gt.getTime())) return false;
     if ("not" in c && value === c.not) return false;
     return true;
   });
@@ -891,6 +899,22 @@ describe("runPumpCycle: reservoir and site changes", () => {
     expect(outcomes[0]).toMatchObject({ outcome: "ok", stored: 1, changes: [] });
     expect(db.state.spaces[0]?.pumpFailures).toBe(0);
     expect(h.lines.some((line) => line.includes("pump.changes-failed"))).toBe(true);
+  });
+
+  it("never stores a change dated ahead of now, and replaces one an earlier build stored", async () => {
+    const db = fakeDb({ spaces: [pumpSpace({ pumpSensorAt: new Date(NOW.getTime() + 6 * DAY) })] });
+    const source = new ChangingPumpSource(
+      [],
+      [
+        change("pump:5", "sensor", ago(4 * DAY)),
+        change("pump:6", "sensor", new Date(NOW.getTime() + 6 * DAY)),
+        change("pump:7", "cannula", new Date(NOW.getTime() + HOUR)),
+      ],
+    );
+    const outcomes = await harness(db, { s1: source }).run();
+    expect(db.state.spaces[0]?.pumpSensorAt).toEqual(ago(4 * DAY));
+    expect(db.state.spaces[0]?.pumpCannulaAt).toBeNull();
+    expect(outcomes[0]?.changes).toEqual(["sensor"]);
   });
 
   it("leaves the countdown alone for a source that has no changes to give", async () => {

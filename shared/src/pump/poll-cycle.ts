@@ -40,6 +40,8 @@ export const PUMP_MEAL_GRACE_MINUTES = 120;
 export const PUMP_FAILURES_BEFORE_DISCONNECTED = 3;
 /** Reservoir and site fills are read this far back; a part is never worn longer. */
 export const PUMP_CHANGES_DAYS = 14;
+/** A change dated more than this after now is dropped. */
+export const PUMP_CHANGE_FUTURE_SLACK_MS = 10 * MINUTE;
 /** Spaces read side by side, so a few stalled sites cannot hold the rest until the host's timeout. */
 export const PUMP_CONCURRENCY = 4;
 
@@ -259,12 +261,16 @@ async function storeChanges(
   const since = new Date(started.getTime() - PUMP_CHANGES_DAYS * DAY);
   try {
     const fetched = await source.fetchChangesSince(since);
+    // Whatever the adapter, a change dated ahead of now did not happen yet and is never stored.
+    const latest = started.getTime() + PUMP_CHANGE_FUTURE_SLACK_MS;
     const changes = fetched.flatMap((change) => {
       const parsed = PumpChange.safeParse(change);
-      return parsed.success ? [parsed.data] : [];
+      return parsed.success && Date.parse(parsed.data.ts) <= latest ? [parsed.data] : [];
     });
     if (changes.length === 0) return [];
-    return await deps.write((tx, emit) => writePumpChanges(tx, emit, { spaceId, changes }));
+    return await deps.write((tx, emit) =>
+      writePumpChanges(tx, emit, { spaceId, changes, now: started }),
+    );
   } catch (error) {
     deps.log.warn("pump.changes-failed", { spaceId, code: codeOf(error) });
     return [];

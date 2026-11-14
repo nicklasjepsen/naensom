@@ -5,6 +5,7 @@ import type { PumpSource } from "../../pump/types";
 import {
   BOLUS_EVENT_TYPE,
   CHANGE_EVENT_TYPES,
+  CHANGE_FUTURE_SLACK_MS,
   CHANGE_PAGE_COUNT,
   ChangeEntry,
   ENDPOINTS,
@@ -128,10 +129,12 @@ export class NightscoutPumpSource implements PumpSource {
   /**
    * Reservoir and infusion-set fills at or after `since`, oldest first, one per record: the newest
    * `CHANGE_PAGE_COUNT` of each change type. Only the newest of each part is ever used, so one page
-   * is enough; a record that cannot be read, and a tubing fill, are skipped.
+   * is enough; a record that cannot be read, a tubing fill, and one dated more than ten minutes
+   * ahead of now (it did not happen yet) are skipped.
    */
   async fetchChangesSince(since: Date): Promise<PumpChange[]> {
     const byId = new Map<string, PumpChange>();
+    const latest = this.now().getTime() + CHANGE_FUTURE_SLACK_MS;
     for (const eventType of CHANGE_EVENT_TYPES) {
       const query = new URLSearchParams({
         "find[created_at][$gte]": since.toISOString(),
@@ -141,6 +144,7 @@ export class NightscoutPumpSource implements PumpSource {
       for (const row of await this.readRows(query)) {
         const change = toChange(row, eventType);
         if (change === undefined || Date.parse(change.ts) < since.getTime()) continue;
+        if (Date.parse(change.ts) > latest) continue;
         if (!byId.has(change.sourceId)) byId.set(change.sourceId, change);
       }
     }

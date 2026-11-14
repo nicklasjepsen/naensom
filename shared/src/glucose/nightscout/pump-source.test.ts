@@ -634,6 +634,34 @@ describe("NightscoutPumpSource.fetchChangesSince", () => {
     ]);
   });
 
+  it("skips a change dated more than ten minutes ahead of now", async () => {
+    const h = pump((call) =>
+      call.url.searchParams.get("find[eventType]") === "Sensor Start"
+        ? {
+            body: JSON.stringify([
+              {
+                eventType: "Sensor Start",
+                created_at: "2026-10-21T18:00:00.000Z",
+                pump_event_id: "801",
+              },
+              {
+                eventType: "Sensor Start",
+                created_at: "2026-10-15T18:05:00.000Z",
+                pump_event_id: "800",
+              },
+              {
+                eventType: "Sensor Start",
+                created_at: "2026-10-11T18:00:00.000Z",
+                pump_event_id: "799",
+              },
+            ]),
+          }
+        : { body: "[]" },
+    );
+    const changes = await h.source.fetchChangesSince(new Date(now.getTime() - 14 * DAY));
+    expect(changes.map((c) => c.sourceId)).toEqual(["pump:799", "pump:800"]);
+  });
+
   it("fails like the bolus read when the site refuses", async () => {
     const h = pump({ status: 401, body: "" });
     await expect(h.source.fetchChangesSince(new Date(now.getTime() - DAY))).rejects.toBeInstanceOf(

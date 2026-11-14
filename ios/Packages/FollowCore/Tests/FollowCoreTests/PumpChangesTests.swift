@@ -78,6 +78,14 @@ final class PumpChangesTests: XCTestCase {
         XCTAssertEqual(changes.sensorAt, ISO8601DateFormatter().date(from: "2026-11-08T07:30:00Z"))
     }
 
+    func testSkipsAChangeDatedAheadOfNow() async throws {
+        let transport = ChangesTransport(bodies: [
+            "Sensor Start": #"[{"eventType":"Sensor Start","created_at":"2026-11-20T17:00:00.000Z"},{"eventType":"Sensor Start","created_at":"2026-11-10T17:00:00.000Z"}]"#,
+        ])
+        let changes = try await NightscoutClient(transport: transport).pumpChanges(site: "ns.example.org", token: "t", now: now)
+        XCTAssertEqual(changes.sensorAt, ISO8601DateFormatter().date(from: "2026-11-10T17:00:00Z"))
+    }
+
     func testARefusedTokenThrows() async {
         let transport = ChangesTransport(bodies: [:], status: 401)
         do {

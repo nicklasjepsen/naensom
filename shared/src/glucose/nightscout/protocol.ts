@@ -147,6 +147,11 @@ export const CHANGE_EVENT_TYPES = [
   SENSOR_START_EVENT_TYPE,
   SENSOR_CHANGE_EVENT_TYPE,
 ] as const;
+/**
+ * A change dated more than this after now is not a change that happened: a pump clock or an
+ * uploader can send a future time (a sensor read as changing six days ahead). It is skipped.
+ */
+export const CHANGE_FUTURE_SLACK_MS = 10 * MINUTE_MS;
 /** Newest records read per type: about ten days of tconnectsync's three fills per change. */
 export const CHANGE_PAGE_COUNT = 30;
 
