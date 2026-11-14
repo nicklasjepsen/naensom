@@ -145,7 +145,7 @@ private struct LiveActivityBanner: View {
     }
 }
 
-/// "Pumpeskift": when the reservoir, the site and the sensor are next due, in plain words ("Skiftes om 1 dag").
+/// "Næste skift": when the reservoir, the site and the sensor are next due, in plain words ("Skiftes om 1 dag").
 /// Tapping a part shows when the pump recorded the last change, when the next is due, and how many
 /// days it lasts. Shown only once the site has sent a change; past due reads in the plain text
 /// colour with a clock symbol, a reminder and not an alarm.

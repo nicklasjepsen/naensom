@@ -63,7 +63,7 @@ describe("PumpChangesCard", () => {
       "ReservoirSkiftes om 1 dag",
     );
     expect(screen.getByTestId("pump-change-cannula")).toHaveTextContent(
-      "KanyleSkulle skiftes for 3 timer siden",
+      "IndstikSkulle skiftes for 3 timer siden",
     );
     expect(screen.getByTestId("pump-change-sensor")).toHaveTextContent("SensorSkiftes om 4 dage");
   });

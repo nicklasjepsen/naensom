@@ -119,7 +119,7 @@
 "settings.layout.footer" = "The value and its age are always shown, so an old value never looks current. Changes show on the lock screen at once.";
 
 /* Reservoir and site countdown */
-"changes.title" = "Pump changes";
+"changes.title" = "Next changes";
 "changes.cartridge" = "Reservoir";
 "changes.cannula" = "Site";
 "changes.sensor" = "Sensor";
