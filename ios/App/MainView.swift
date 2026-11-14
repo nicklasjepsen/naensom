@@ -215,12 +215,17 @@ private struct PumpChangesSection: View {
                     if let dueAt {
                         Text(L("changes.next", Self.time(dueAt)))
                     }
-                    Picker(L("changes.lasts"), selection: Binding(get: { days }, set: { app.setChangeDays($0, for: part) })) {
-                        ForEach(Array(PumpCountdown.dayChoices), id: \.self) { n in
-                            Text(n == 1 ? L("changes.day", n) : L("changes.days", n)).tag(n)
+                    // A menu picker outside a Form shows only its value, so the label is its own text.
+                    HStack(spacing: 6) {
+                        Text(L("changes.lasts"))
+                        Picker(L("changes.lasts"), selection: Binding(get: { days }, set: { app.setChangeDays($0, for: part) })) {
+                            ForEach(Array(PumpCountdown.dayChoices), id: \.self) { n in
+                                Text(n == 1 ? L("changes.day", n) : L("changes.days", n)).tag(n)
+                            }
                         }
+                        .pickerStyle(.menu)
+                        .labelsHidden()
                     }
-                    .pickerStyle(.menu)
                 }
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
