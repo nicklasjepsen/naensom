@@ -163,6 +163,10 @@ final class AppModel: ObservableObject {
         scheduleSync()
     }
 
+    func setChangeDays(_ days: Int, for part: PumpPart) {
+        follow.update { $0.setDays(days, for: part) }
+    }
+
     func setCurveWindow(_ window: CurveWindow) {
         follow.update { $0.curveWindow = window }
     }

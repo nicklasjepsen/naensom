@@ -47,15 +47,17 @@ public protocol HTTPTransport: Sendable {
     func send(_ request: URLRequest) async throws -> (Data, Int)
 }
 
-/// Reads the newest sensor readings from a Nightscout site. Read-only: the only call it can make is
-/// `GET /api/v1/entries/sgv.json`, the same endpoint the desktop app and Nænsom's poller read. The
-/// token goes in the `api-secret` header, never in the URL, so it stays out of server logs.
+/// Reads the newest sensor readings from a Nightscout site. Read-only: every call it can make is a
+/// `GET`: `/api/v1/entries/sgv.json` (the same endpoint the desktop app and Nænsom's poller read),
+/// `/api/v1/status.json`, and `/api/v1/treatments.json` for reservoir and site changes only
+/// (`PumpChanges.swift`). The token goes in the `api-secret` header, never in the URL, so it stays
+/// out of server logs.
 public struct NightscoutClient: Sendable {
-    /// The only two paths this client ever requests, both `GET`.
+    /// Paths this client requests, all `GET`; `treatmentsPath` is in `PumpChanges.swift`.
     public static let entriesPath = "/api/v1/entries/sgv.json"
     public static let statusPath = "/api/v1/status.json"
 
-    private let transport: HTTPTransport
+    let transport: HTTPTransport
 
     public init(transport: HTTPTransport) {
         self.transport = transport
