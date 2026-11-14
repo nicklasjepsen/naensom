@@ -144,7 +144,7 @@ private struct LiveActivityBanner: View {
     }
 }
 
-/// The 3/6/12-hour curve with the window picker.
+/// The 3/6/12/24-hour curve with the window picker.
 private struct CurveSection: View {
     @EnvironmentObject private var app: AppModel
     @EnvironmentObject private var follow: FollowModel
@@ -247,7 +247,7 @@ private struct CurveChart: View {
         .chartXScale(domain: start...now)
         .chartYScale(domain: shown(low)...shown(high))
         .chartXAxis {
-            AxisMarks(values: .stride(by: .hour, count: window == .twelveHours ? 3 : 1)) { _ in
+            AxisMarks(values: .stride(by: .hour, count: window.axisStrideHours)) { _ in
                 AxisGridLine()
                 AxisValueLabel(format: .dateTime.hour())
             }
