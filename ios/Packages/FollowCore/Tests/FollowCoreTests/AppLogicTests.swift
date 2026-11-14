@@ -68,32 +68,35 @@ final class DemoCurveTests: XCTestCase {
 
 final class ReadingHistoryTests: XCTestCase {
     func testFetchesTheFullHistoryFirstThenOnlyTheGap() {
-        XCTAssertEqual(ReadingHistory.fetchCount(newest: nil, now: noon), 150)
+        XCTAssertEqual(ReadingHistory.fetchCount(newest: nil, now: noon), 300)
         XCTAssertEqual(ReadingHistory.fetchCount(newest: reading(2, 100), now: noon), 3)
         XCTAssertEqual(ReadingHistory.fetchCount(newest: reading(31, 100), now: noon), 9)
-        XCTAssertEqual(ReadingHistory.fetchCount(newest: reading(60 * 13, 100), now: noon), 150)
+        XCTAssertEqual(ReadingHistory.fetchCount(newest: reading(60 * 13, 100), now: noon), 159)
+        XCTAssertEqual(ReadingHistory.fetchCount(newest: reading(60 * 25, 100), now: noon), 300)
     }
 
-    func testMergesNewestFirstOnePerTimeAndForgetsAfterTwelveHours() {
-        let old = [reading(10, 100), reading(5, 110), reading(60 * 12 + 1, 90)]
+    func testMergesNewestFirstOnePerTimeAndForgetsAfterTwentyFourHours() {
+        let old = [reading(10, 100), reading(5, 110), reading(60 * 24 + 1, 90)]
         let fresh = [reading(0, 130), reading(5, 112)]
         let merged = ReadingHistory.merge(old, fresh, now: noon)
         XCTAssertEqual(merged.map(\.mgdl), [130, 112, 100])
     }
 
     func testKeepsTheNewestReadingHoweverOld() {
-        // A site silent for more than 12 hours still shows its last value (grey, with its age).
-        let fresh = [reading(60 * 13, 140), reading(60 * 14, 130)]
+        // A site silent for more than 24 hours still shows its last value (grey, with its age).
+        let fresh = [reading(60 * 25, 140), reading(60 * 26, 130)]
         XCTAssertEqual(ReadingHistory.merge([], fresh, now: noon).map(\.mgdl), [140])
-        XCTAssertTrue(ReadingHistory.points([reading(60 * 13, 140)], window: .twelveHours, now: noon).isEmpty)
+        XCTAssertTrue(ReadingHistory.points([reading(60 * 25, 140)], window: .twentyFourHours, now: noon).isEmpty)
     }
 
     func testAWindowShowsItsHoursOldestFirst() {
-        let readings = [reading(0, 1), reading(170, 2), reading(181, 3), reading(359, 4), reading(361, 5), reading(700, 6)]
+        let readings = [reading(0, 1), reading(170, 2), reading(181, 3), reading(359, 4), reading(361, 5), reading(700, 6), reading(1400, 7), reading(1441, 8)]
         XCTAssertEqual(ReadingHistory.points(readings, window: .threeHours, now: noon).map(\.mgdl), [2, 1])
         XCTAssertEqual(ReadingHistory.points(readings, window: .sixHours, now: noon).map(\.mgdl), [4, 3, 2, 1])
         XCTAssertEqual(ReadingHistory.points(readings, window: .twelveHours, now: noon).map(\.mgdl), [6, 5, 4, 3, 2, 1])
-        XCTAssertEqual(CurveWindow.allCases.map(\.hours), [3, 6, 12])
+        XCTAssertEqual(ReadingHistory.points(readings, window: .twentyFourHours, now: noon).map(\.mgdl), [7, 6, 5, 4, 3, 2, 1])
+        XCTAssertEqual(CurveWindow.allCases.map(\.hours), [3, 6, 12, 24])
+        XCTAssertEqual(CurveWindow.allCases.map(\.axisStrideHours), [1, 1, 3, 6])
     }
 
     func testTheAxisCoversReadingsAndTargetRangeOnTwentySteps() {
