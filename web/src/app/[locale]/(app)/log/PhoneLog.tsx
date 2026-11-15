@@ -299,14 +299,19 @@ function LibraryView({ controller, phone }: Props) {
 
 function ManualView({ controller }: Props) {
   const t = useTranslations("log");
+  const { sourceName } = useSourceLine();
   const manual = controller.manual;
   if (!manual) return null;
   return (
     <div className={styles.phone} data-testid="log-phone">
-      <PageHeader title={t("manual.title")} onBack={controller.closeManual} />
+      <PageHeader
+        title={manual.candidate ? t("missingCarbs.title") : t("manual.title")}
+        onBack={controller.closeManual}
+      />
       <ManualFoodForm
         initialName={manual.name}
         barcode={manual.barcode}
+        missingFrom={manual.candidate ? sourceName(manual.candidate.origin) : undefined}
         busy={controller.manualBusy}
         failed={controller.manualFailed}
         showTitle={false}

@@ -34,6 +34,7 @@ export const POST = foodRoute("foods.create", async (request, context) => {
       context.session,
       candidate.data.candidate,
       context.deps,
+      candidate.data.nutrition,
     );
   } else {
     food = await createFood(context.spaceId, context.session, body, context.deps);

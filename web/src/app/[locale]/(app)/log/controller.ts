@@ -4,6 +4,7 @@
 // log/ imports Prisma (log.test.ts asserts it).
 import type {
   CreateFoodRequest,
+  FoodCandidate,
   FoodView,
   LookupResponse,
   LookupResult,
@@ -134,7 +135,12 @@ export function useLogController({
   const [library, setLibrary] = useState<FoodView[] | null>(null);
   const [draft, setDraft] = useState<MealDraft>(emptyDraft);
   const [activeKey, setActiveKey] = useState<string | null>(null);
-  const [manual, setManual] = useState<{ name: string; barcode?: string } | null>(null);
+  /** "Jeg kender tallet selv", or a picked source food that lists no carbs (`candidate`). */
+  const [manual, setManual] = useState<{
+    name: string;
+    barcode?: string | undefined;
+    candidate?: FoodCandidate;
+  } | null>(null);
   const [manualBusy, setManualBusy] = useState(false);
   const [manualFailed, setManualFailed] = useState(false);
   const [photo, setPhoto] = useState<Uint8Array | null>(null);
@@ -182,6 +188,12 @@ export function useLogController({
       setPickFailed(false);
       if (isLibraryFood(result.food)) {
         addToMeal(result.food);
+        return;
+      }
+      if (result.food.carbsPer100g == null && result.food.portions.length === 0) {
+        // The source lists no carbs: ask for them; they are kept on the space's copy.
+        setManualFailed(false);
+        setManual({ name: result.food.name, barcode: result.food.barcode, candidate: result.food });
         return;
       }
       try {
@@ -311,7 +323,12 @@ export function useLogController({
       setManualBusy(true);
       setManualFailed(false);
       try {
-        const food = await createManualFood(spaceId, request);
+        const food = manual?.candidate
+          ? await pickCandidate(spaceId, manual.candidate, {
+              carbsPer100g: request.carbsPer100g ?? null,
+              portions: request.portions,
+            })
+          : await createManualFood(spaceId, request);
         setManual(null);
         addToMeal(food);
       } catch {
@@ -320,7 +337,7 @@ export function useLogController({
         setManualBusy(false);
       }
     },
-    [addToMeal, spaceId],
+    [addToMeal, manual, spaceId],
   );
 
   const goNow = useCallback(() => {

@@ -26,7 +26,13 @@ export function ManualFoodForm({
   onCreate,
   onCancel,
   showTitle = true,
+  missingFrom,
 }: {
+  /**
+   * A source food without carbohydrates (say Open Food Facts): its name is fixed, the form asks
+   * only for the numbers and says they are kept on the food for next time.
+   */
+  missingFrom?: string | undefined;
   /** Desktop: back to the results without creating anything (the phone has its header back). */
   onCancel?: () => void;
   /** The phone's page header already carries the title; the form keeps its accessible name. */
@@ -38,6 +44,7 @@ export function ManualFoodForm({
   onCreate: (request: CreateFoodRequest) => void;
 }) {
   const t = useTranslations("log.manual");
+  const missing = useTranslations("log.missingCarbs");
   const cancel = useTranslations("log");
   const [name, setName] = useState(initialName);
   const [per100g, setPer100g] = useState("");
@@ -65,17 +72,30 @@ export function ManualFoodForm({
     });
   };
   return (
-    <form className={styles.manualForm} onSubmit={submit} aria-label={t("title")}>
-      {showTitle && <h2 className={styles.sectionTitle}>{t("title")}</h2>}
+    <form
+      className={styles.manualForm}
+      onSubmit={submit}
+      aria-label={missingFrom ? missing("title") : t("title")}
+    >
+      {showTitle && (
+        <h2 className={styles.sectionTitle}>{missingFrom ? missing("title") : t("title")}</h2>
+      )}
+      {missingFrom && (
+        <p data-testid="missing-carbs">
+          {missing("intro", { source: missingFrom, name: initialName })}
+        </p>
+      )}
       {barcode && <p className={styles.muted}>{t("barcode", { code: barcode })}</p>}
-      <TextInput
-        label={t("name")}
-        value={name}
-        maxLength={200}
-        onChange={(event) => {
-          setName(event.target.value);
-        }}
-      />
+      {!missingFrom && (
+        <TextInput
+          label={t("name")}
+          value={name}
+          maxLength={200}
+          onChange={(event) => {
+            setName(event.target.value);
+          }}
+        />
+      )}
       <NumberInput
         label={t("per100g")}
         value={per100g}
@@ -109,7 +129,7 @@ export function ManualFoodForm({
       <p className={styles.muted}>{t("hint")}</p>
       {failed && <p role="alert">{t("failed")}</p>}
       <Button type="submit" size="phone" disabled={!valid || busy}>
-        {t("create")}
+        {missingFrom ? missing("save") : t("create")}
       </Button>
       {onCancel && (
         <Button variant="secondary" onClick={onCancel}>

@@ -50,6 +50,11 @@
     "create": "Opret og tilføj",
     "failed": "Det blev ikke gemt – prøv igen"
   },
+  "missingCarbs": {
+    "title": "Kulhydrater mangler",
+    "intro": "{source} har ingen kulhydrater for {name}. Skriv dem fra pakken, så husker vi dem til næste gang.",
+    "save": "Gem og tilføj"
+  },
   "scanner": {
     "title": "Scan en stregkode",
     "aim": "Hold stregkoden inden for rammen",

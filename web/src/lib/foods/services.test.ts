@@ -133,6 +133,37 @@ describe("food writes", () => {
     });
     expect(rig.events).toHaveLength(1);
   });
+  it("completes a source food without carbs with the person's own numbers and keeps the cache as the source has it", async () => {
+    const bare = { ...candidate, carbsPer100g: null, portions: [] };
+    rig.remoteCandidates = [bare];
+    await expect(addCandidate("s1", actor, bare, rig.deps)).rejects.toMatchObject({
+      status: 400,
+      code: "validation",
+    });
+    expect(rig.rows.filter((row) => row.spaceId === "s1")).toEqual([]);
+    const food = await addCandidate("s1", actor, bare, rig.deps, {
+      carbsPer100g: 20,
+      portions: [{ label: "1 is", carbs: 13 }],
+    });
+    expect(food).toMatchObject({
+      name: candidate.name,
+      origin: candidate.origin,
+      carbsPer100g: 20,
+      portions: [{ label: "1 is", carbs: 13 }],
+      verified: false,
+    });
+    // The shared cache stays as the source has it; only this space's copy carries the numbers.
+    expect(rig.rows.find((row) => row.spaceId === null)).toMatchObject({ carbsPer100g: null });
+    // Next time the space's copy (with carbs) is what a pick returns.
+    expect((await addCandidate("s1", actor, bare, rig.deps)).id).toBe(food.id);
+  });
+  it("ignores the person's numbers when the source has carbs", async () => {
+    const food = await addCandidate("s1", actor, candidate, rig.deps, {
+      carbsPer100g: 99,
+      portions: [],
+    });
+    expect(food.carbsPer100g).toBe(candidate.carbsPer100g);
+  });
   it("does not cache a remote candidate whose identity the adapter cannot confirm", async () => {
     rig.remoteCandidates = [];
     await expect(addCandidate("s1", actor, candidate, rig.deps)).rejects.toMatchObject({

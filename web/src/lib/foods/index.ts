@@ -2,7 +2,6 @@ import { mergeSemantic } from "@naensom/shared/ai/search/rank";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import {
-  AddCandidateRequest,
   CreateFoodRequest,
   Food,
   FoodView,
@@ -14,7 +13,8 @@ import {
   VerifyFoodsRequest,
   carbsFor,
   foldForSearch,
-  type FoodCandidate,
+  FoodCandidate,
+  CandidateNutrition,
   type SessionContext,
 } from "@naensom/shared";
 import { OWN_FOOD_ORIGINS } from "@naensom/shared/food/types";
@@ -277,9 +277,13 @@ export async function addCandidate(
   session: SessionContext,
   value: FoodCandidate,
   input: FoodDeps = {},
+  /** The person's own numbers, used only when the source has no carbohydrates for the food. */
+  nutrition?: CandidateNutrition,
 ): Promise<FoodView> {
   authorize(spaceId, session);
-  let { candidate } = parse(AddCandidateRequest, { candidate: value });
+  // Carbs are checked once the source's own data is known (below), not on the client's copy.
+  let candidate = parse(FoodCandidate, value);
+  if (nutrition) nutrition = parse(CandidateNutrition, nutrition);
   const deps = resolveFoods(input);
   if (!candidate.sourceRef.startsWith(`${candidate.origin}:`))
     throw new HttpError(400, "validation");
@@ -295,17 +299,15 @@ export async function addCandidate(
     // A cache row is already canonical, including when its plugin has since been disabled.
     // Never let a stale or crafted client copy replace the shared data.
     const food = foodOf(cached);
-    candidate = parse(AddCandidateRequest, {
-      candidate: {
-        name: food.name,
-        carbsPer100g: food.carbsPer100g,
-        portions: food.portions,
-        barcode: food.barcode,
-        origin: food.origin,
-        sourceRef: food.sourceRef,
-        category: food.category,
-      },
-    }).candidate;
+    candidate = parse(FoodCandidate, {
+      name: food.name,
+      carbsPer100g: food.carbsPer100g,
+      portions: food.portions,
+      barcode: food.barcode,
+      origin: food.origin,
+      sourceRef: food.sourceRef,
+      category: food.category,
+    });
   } else {
     if (!source) throw new HttpError(400, "validation");
     // FoodSource has no lookup-by-reference or signed-result contract. A non-barcode pick
@@ -332,6 +334,16 @@ export async function addCandidate(
       const { category: _unconfirmed, ...rest } = candidate;
       candidate = rest;
     }
+  }
+  if (candidate.carbsPer100g == null && candidate.portions.length === 0) {
+    // The source has no carbohydrates for this food: the space copy carries the person's own
+    // numbers (still unverified), so the next search finds it with carbs. Without them, no copy.
+    if (!nutrition) throw new HttpError(400, "validation");
+    candidate = {
+      ...candidate,
+      carbsPer100g: nutrition.carbsPer100g,
+      portions: nutrition.portions,
+    };
   }
   const row = await foodTransaction(deps, async (tx, emit) => {
     const prior = await tx.food.findFirst({ where: { spaceId, sourceRef: candidate.sourceRef } });

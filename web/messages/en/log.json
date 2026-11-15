@@ -50,6 +50,11 @@
     "create": "Create and add",
     "failed": "It was not saved – try again"
   },
+  "missingCarbs": {
+    "title": "Carbs missing",
+    "intro": "{source} has no carbs for {name}. Enter them from the pack and we'll remember them next time.",
+    "save": "Save and add"
+  },
   "scanner": {
     "title": "Scan a barcode",
     "aim": "Hold the barcode inside the frame",

@@ -11,9 +11,12 @@ describe("the log copy's only bolus string: a stored time", () => {
   it.each([
     ["da", da],
     ["en", en],
-  ] as const)("%s: keeps only Bolus {time}, with no tap, removal, undo or note", (_locale, copy) => {
-    expect(copy.bolus).toEqual({ at: "Bolus {time}" });
-  });
+  ] as const)(
+    "%s: keeps only Bolus {time}, with no tap, removal, undo or note",
+    (_locale, copy) => {
+      expect(copy.bolus).toEqual({ at: "Bolus {time}" });
+    },
+  );
 
   it("accepts the Bolus HH:MM template and still flags anything that is not a time", () => {
     expect(findDosingVocabulary([["k", "Bolus {time}"]])).toEqual([]);

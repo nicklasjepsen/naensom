@@ -237,6 +237,54 @@ describe("Log-Telefon", () => {
     expect(screen.getByText("Open Food Facts svarer ikke lige nu")).toBeVisible();
   });
 
+  it("asks for the carbs of a source food that lists none and saves them on the food", async () => {
+    api();
+    const lolly = {
+      name: "Sun Lolly Jordbær, Sun Lolly",
+      carbsPer100g: null,
+      portions: [],
+      barcode: "2000000000015",
+      origin: "off",
+      sourceRef: "off:2000000000015",
+    };
+    fake.on(
+      "GET /api/spaces/s1/lookup",
+      lookup({ results: [{ source: "off", verified: false, food: lolly }] }),
+    );
+    fake.on(
+      "POST /api/spaces/s1/foods",
+      food({
+        id: "f-lolly",
+        name: lolly.name,
+        carbsPer100g: 20,
+        portions: [{ label: "1 is", carbs: 13 }],
+        origin: "off",
+        verified: false,
+      }),
+      201,
+    );
+    mount();
+    await typeAndSubmit("Skriv hvad der spises", "sun lolly");
+    fireEvent.click(screen.getByRole("button", { name: "Sun Lolly Jordbær, Sun Lolly" }));
+    // Nothing is written yet: the form asks first.
+    expect(writes()).toEqual([]);
+    expect(await screen.findByTestId("missing-carbs")).toHaveTextContent(
+      "Open Food Facts har ingen kulhydrater for Sun Lolly Jordbær, Sun Lolly.",
+    );
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Kulhydrat pr. 100 g" }), {
+      target: { value: "20" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Gem og tilføj" }));
+    await waitFor(() => {
+      expect(writes()[0]).toEqual({
+        method: "POST",
+        path: "/api/spaces/s1/foods",
+        body: { candidate: lolly, nutrition: { carbsPer100g: 20, portions: [] } },
+      });
+    });
+    expect(await screen.findByTestId("total-bar")).toBeVisible();
+  });
+
   it("picks a remote result into the library, asks how much and saves the meal to Now", async () => {
     api();
     mount();

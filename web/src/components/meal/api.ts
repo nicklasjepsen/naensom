@@ -7,6 +7,7 @@ import {
   CreateFoodRequest,
   FoodView,
   LookupResponse,
+  type CandidateNutrition,
   type FoodCandidate,
 } from "@naensom/shared/schemas/food";
 import {
@@ -113,9 +114,17 @@ export async function listFoods(spaceId: string, filter: FoodFilter): Promise<Fo
 }
 
 /** A plugin or cache result into the space library, `verified: false` (task 4's `addCandidate`). */
-export async function pickCandidate(spaceId: string, candidate: FoodCandidate): Promise<FoodView> {
+/** `nutrition`: the person's own numbers for a source food that lists no carbohydrates. */
+export async function pickCandidate(
+  spaceId: string,
+  candidate: FoodCandidate,
+  nutrition?: CandidateNutrition,
+): Promise<FoodView> {
   return body(
-    await send(`${base(spaceId)}/foods`, { method: "POST", body: { candidate } }),
+    await send(`${base(spaceId)}/foods`, {
+      method: "POST",
+      body: nutrition ? { candidate, nutrition } : { candidate },
+    }),
     OneFood,
   );
 }

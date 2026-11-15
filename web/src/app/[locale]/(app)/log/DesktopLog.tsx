@@ -65,7 +65,7 @@ export function DesktopLog({ controller, spaceId, timeZone, userName, simpleMode
   const clock = useNow();
   const at = useMealTime(controller);
   const slot = useSlotLabel(at, timeZone);
-  const { line } = useSourceLine();
+  const { line, sourceName } = useSourceLine();
   const [mode, setMode] = useState<"favourites" | "recent">("favourites");
   const response = controller.response;
   const rowCount = response ? response.results.length + 1 : 0;
@@ -225,6 +225,11 @@ export function DesktopLog({ controller, spaceId, timeZone, userName, simpleMode
               <ManualFoodForm
                 initialName={controller.manual.name}
                 barcode={controller.manual.barcode}
+                missingFrom={
+                  controller.manual.candidate
+                    ? sourceName(controller.manual.candidate.origin)
+                    : undefined
+                }
                 busy={controller.manualBusy}
                 failed={controller.manualFailed}
                 onCreate={(request) => void controller.createManual(request)}

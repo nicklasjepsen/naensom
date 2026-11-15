@@ -188,9 +188,20 @@ export const CreateFoodRequest = z
   })
   .refine(hasCarbs, nutritionError);
 export type CreateFoodRequest = z.infer<typeof CreateFoodRequest>;
-export const AddCandidateRequest = z.strictObject({
-  candidate: FoodCandidate.refine(hasCarbs, nutritionError),
-});
+/**
+ * A person's own numbers for a source food that has none (Open Food Facts often lists no
+ * carbohydrates). The service uses them only when the confirmed source data has no carbs.
+ */
+export const CandidateNutrition = z
+  .strictObject({ carbsPer100g: fields.carbsPer100g, portions: fields.portions })
+  .refine(hasCarbs, nutritionError);
+export type CandidateNutrition = z.infer<typeof CandidateNutrition>;
+export const AddCandidateRequest = z
+  .strictObject({ candidate: FoodCandidate, nutrition: CandidateNutrition.optional() })
+  .refine((value) => hasCarbs(value.candidate) || value.nutrition !== undefined, {
+    message: nutritionError.message,
+    path: ["candidate", "portions"],
+  });
 export type AddCandidateRequest = z.infer<typeof AddCandidateRequest>;
 export const UpdateFoodRequest = z
   .strictObject({

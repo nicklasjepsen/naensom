@@ -1,10 +1,4 @@
-import {
-  AddCandidateRequest,
-  HttpError,
-  type FoodCandidate,
-  type FoodSource,
-  type Locale,
-} from "@naensom/shared";
+import { FoodCandidate, HttpError, type FoodSource, type Locale } from "@naensom/shared";
 
 /** One bounded call to a source: 2.5 s, then the signal aborts and the pick is unavailable. */
 async function bounded<T>(run: (signal: AbortSignal) => Promise<T>): Promise<T> {
@@ -41,11 +35,14 @@ export async function confirmRemoteCandidate(
         food.barcode === candidate.barcode),
   );
   if (!found) throw new HttpError(400, "validation");
-  const parsed = AddCandidateRequest.safeParse({
-    candidate: { ...found, origin: source.id, sourceRef: candidate.sourceRef },
+  // A source food without carbs is still a valid candidate; the caller completes it.
+  const parsed = FoodCandidate.safeParse({
+    ...found,
+    origin: source.id,
+    sourceRef: candidate.sourceRef,
   });
   if (!parsed.success) throw new HttpError(503, "lookup-unavailable");
-  return parsed.data.candidate;
+  return parsed.data;
 }
 
 /**
@@ -60,9 +57,12 @@ export async function resolveCandidateByRef(
 ): Promise<FoodCandidate> {
   const found = await bounded((signal) => source.byRef(candidate.sourceRef, locale, signal));
   if (found?.sourceRef !== candidate.sourceRef) throw new HttpError(400, "validation");
-  const parsed = AddCandidateRequest.safeParse({
-    candidate: { ...found, origin: source.id, sourceRef: candidate.sourceRef },
+  // A source food without carbs is still a valid candidate; the caller completes it.
+  const parsed = FoodCandidate.safeParse({
+    ...found,
+    origin: source.id,
+    sourceRef: candidate.sourceRef,
   });
   if (!parsed.success) throw new HttpError(503, "lookup-unavailable");
-  return parsed.data.candidate;
+  return parsed.data;
 }
