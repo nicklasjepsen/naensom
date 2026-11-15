@@ -91,19 +91,25 @@ export async function loadSession(
     touching.add(row.id);
     const spaceIds = memberships.map((m) => m.spaceId);
     (deps.defer ?? afterResponse)(async () => {
-      try {
-        await Promise.all([
-          db.session.update({ where: { id: row.id }, data: { lastSeenAt: at } }),
-          db.user.update({ where: { id: row.userId }, data: { lastSeen: at } }),
-        ]);
-        await Promise.all(
-          spaceIds.map((spaceId) => emit(spaceId, "member.updated", { userId: row.userId })),
-        );
-      } catch (error) {
+      const failed = (error: unknown) => {
         log.warn("session.touch-failed", {
           userId: row.userId,
           code: error instanceof Error ? error.name : "unknown",
         });
+      };
+      try {
+        await Promise.all([
+          // Device bookkeeping, no event. The session may be gone by now (signed out, or the
+          // device removed in this very request); that changes nothing for the user's write.
+          db.session.update({ where: { id: row.id }, data: { lastSeenAt: at } }).catch(failed),
+          // The member write and its events stay together, independent of the session row.
+          (async () => {
+            await db.user.update({ where: { id: row.userId }, data: { lastSeen: at } });
+            await Promise.all(
+              spaceIds.map((spaceId) => emit(spaceId, "member.updated", { userId: row.userId })),
+            );
+          })().catch(failed),
+        ]);
       } finally {
         touching.delete(row.id);
       }

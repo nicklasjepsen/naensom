@@ -256,6 +256,19 @@ describe("loadSession", () => {
     expect(emitted).toHaveLength(2);
   });
 
+  it("still writes lastSeen and emits when the session row is gone before the touch runs", async () => {
+    // Removing this device in the same request deletes the session before the deferred touch.
+    const { db, emit, touches, emitted } = fakeDb([alive()]);
+    db.session.update = (() =>
+      Promise.reject(
+        new Error("Record to update not found"),
+      )) as unknown as typeof db.session.update;
+    await loadSession("sess-1", { db, emit, defer, now: () => minutes(60) });
+    await settle();
+    expect(touches.user).toEqual([minutes(60)]);
+    expect(emitted).toHaveLength(2);
+  });
+
   it("touches once when parallel requests of one session find it due", async () => {
     const { db, emit, touches } = fakeDb([alive()]);
     await Promise.all(
