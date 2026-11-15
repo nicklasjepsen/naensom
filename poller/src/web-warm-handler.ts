@@ -21,7 +21,8 @@ export interface WebWarmDeps {
 }
 
 /**
- * One GET of the health endpoint. Logs the status and how long it took, never the body; a failure
+ * One GET of the health endpoint. Logs the status (`code`, as `http-200`) and how long it took
+ * (`ms`), never the body; a failure
  * is a warning and never throws, because a missed keep-warm is not worth a failed invocation.
  */
 export function createWebWarmHandler(deps: WebWarmDeps): () => Promise<void> {
@@ -39,13 +40,14 @@ export function createWebWarmHandler(deps: WebWarmDeps): () => Promise<void> {
       });
       // Read the body so the connection is released; its content is not needed.
       await response.arrayBuffer();
-      const fields = { status: response.status, durationMs: now() - started };
+      // `code` and `ms` are on the logger's allow-list (shared/src/log.ts); other keys are dropped.
+      const fields = { code: `http-${response.status}`, ms: now() - started };
       if (response.ok) log.info("web-warm.done", fields);
       else log.warn("web-warm.failed", fields);
     } catch (error) {
       log.warn("web-warm.failed", {
-        durationMs: now() - started,
         code: error instanceof Error ? error.name : "unknown",
+        ms: now() - started,
       });
     }
   };

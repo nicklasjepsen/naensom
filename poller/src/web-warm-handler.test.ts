@@ -1,3 +1,4 @@
+import { createLogger } from "@naensom/shared";
 import { describe, expect, it, vi } from "vitest";
 
 import { createWebWarmHandler, WEB_WARM_SCHEDULE } from "./web-warm-handler";
@@ -34,7 +35,7 @@ describe("web keep-warm", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(fetch.mock.calls[0]?.[0]).toBe(URL);
     expect(lines).toEqual([
-      { level: "info", msg: "web-warm.done", fields: { status: 200, durationMs: 450 } },
+      { level: "info", msg: "web-warm.done", fields: { code: "http-200", ms: 450 } },
     ]);
   });
 
@@ -47,9 +48,22 @@ describe("web keep-warm", () => {
       createWebWarmHandler({ url: URL, fetch: broken, log, now: clock(0, 5) })(),
     ).resolves.toBeUndefined();
     expect(lines).toEqual([
-      { level: "warn", msg: "web-warm.failed", fields: { status: 503, durationMs: 20 } },
-      { level: "warn", msg: "web-warm.failed", fields: { durationMs: 5, code: "TypeError" } },
+      { level: "warn", msg: "web-warm.failed", fields: { code: "http-503", ms: 20 } },
+      { level: "warn", msg: "web-warm.failed", fields: { code: "TypeError", ms: 5 } },
     ]);
+  });
+
+  it("keeps the status and the time through the real no-PII logger", async () => {
+    const out: string[] = [];
+    const log = createLogger((line) => out.push(line));
+    const fetch = vi.fn(() => Promise.resolve(new Response("{}", { status: 200 })));
+    await createWebWarmHandler({ url: URL, fetch, log, now: clock(0, 812) })();
+    expect(JSON.parse(out[0] ?? "{}")).toMatchObject({
+      level: "info",
+      msg: "web-warm.done",
+      code: "http-200",
+      ms: 812,
+    });
   });
 
   it("does nothing without WEB_HEALTH_URL", async () => {
