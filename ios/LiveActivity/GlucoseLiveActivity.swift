@@ -65,16 +65,28 @@ func glucoseActivityConfiguration() -> ActivityConfiguration<GlucoseActivityAttr
                 .foregroundStyle(context.isStale ? .gray : .secondary)
                 .frame(maxWidth: 44)
         } minimal: {
-            // No room for a value and its age together, so no value: the arrow in the range colour,
-            // or the clock badge once the reading is stale, so an old trend never looks current.
-            if context.isStale {
-                Image(systemName: GlucoseGlance.staleSymbol).foregroundStyle(.gray)
-            } else {
-                Text(Glucose.arrow(state.direction).isEmpty ? "•" : Glucose.arrow(state.direction))
-                    .font(.body.weight(.bold))
-                    .foregroundStyle(color)
-            }
+            // iOS uses the minimal form whenever another app's activity shares the island, so it
+            // must carry the one thing that matters: the value, in the range colour (grey once
+            // stale, so an old value never looks current). Its small circle has no room for the
+            // arrow or the age as well.
+            MinimalValueText(state: state, unit: unit, color: color)
         }
+    }
+}
+
+/// The value alone, as large as the minimal island's small circle allows ("6,3", "10,5", "180").
+struct MinimalValueText: View {
+    let state: LiveGlucoseState
+    let unit: GlucoseUnit
+    let color: Color
+
+    var body: some View {
+        Text(Glucose.format(state.mgdl, unit: unit, locale: AppLanguage.locale))
+            .font(.system(size: 15, weight: .bold, design: .rounded))
+            .monospacedDigit()
+            .foregroundStyle(color)
+            .minimumScaleFactor(0.6)
+            .lineLimit(1)
     }
 }
 
