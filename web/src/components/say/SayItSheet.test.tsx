@@ -6,6 +6,9 @@ import da from "../../../messages/da";
 import { fetchFake } from "../meal/test-support";
 import { SayItSheet } from "./SayItSheet";
 
+const barcode = vi.hoisted(() => ({ read: vi.fn<() => Promise<string | null>>() }));
+vi.mock("@/lib/barcode/detect", () => ({ readBarcodeInPhoto: barcode.read }));
+
 vi.mock("@/components/food/PhotoPicker", () => ({
   PhotoPicker: ({ onPhoto }: { onPhoto: (bytes: Uint8Array) => void }) => (
     <button
@@ -22,12 +25,19 @@ const guessed = {
   estimate: { name: "Apple", carbs: 12, grams: 100, confidence: "low", approx: true },
 };
 const meal = { items: [guessed], unmatched: ["bread"] };
-function mount() {
+function mount(props: Partial<Parameters<typeof SayItSheet>[0]> = {}) {
   const onAdd = vi.fn(() => Promise.resolve());
   const onSearch = vi.fn();
   render(
     <NextIntlClientProvider locale="da" messages={da}>
-      <SayItSheet spaceId="s1" locale="da" onClose={vi.fn()} onAdd={onAdd} onSearch={onSearch} />
+      <SayItSheet
+        spaceId="s1"
+        locale="da"
+        onClose={vi.fn()}
+        onAdd={onAdd}
+        onSearch={onSearch}
+        {...props}
+      />
     </NextIntlClientProvider>,
   );
   return { onAdd, onSearch };
@@ -95,12 +105,7 @@ it("speech fills the field and never submits on result or end, and stops on unmo
 });
 it("only sends a photo after capture and keeps text when AI is unavailable", async () => {
   const fake = fetchFake()
-    .on("POST /api/spaces/s1/estimates", {
-      items: [guessed.estimate],
-      totalCarbs: 12,
-      dishName: "Apple",
-      approx: true,
-    })
+    .on("POST /api/spaces/s1/photo-meal", { items: [guessed], unmatched: [] })
     .on("POST /api/spaces/s1/parse", { error: { code: "ai-cap-reached" } }, 429);
   fake.install();
   mount();
@@ -109,13 +114,36 @@ it("only sends a photo after capture and keeps text when AI is unavailable", asy
   expect(await screen.findByText("Apple · ca. 12 g")).toBeInTheDocument();
   expect(fake.calls[0]).toEqual({
     method: "POST",
-    path: "/api/spaces/s1/estimates",
+    path: "/api/spaces/s1/photo-meal",
     body: { photoDataUrl: "data:image/jpeg;base64,AQID" },
   });
   fireEvent.change(screen.getByLabelText("Skriv hvad der spises"), { target: { value: "apple" } });
   fireEvent.click(screen.getByRole("button", { name: "Find maden" }));
   expect(await screen.findByText("AI-hjælp er ikke tilgængelig lige nu")).toBeInTheDocument();
   expect(screen.getByLabelText("Skriv hvad der spises")).toHaveValue("apple");
+});
+it("looks up a barcode found in the photo like a scan, with no AI call", async () => {
+  const fake = fetchFake();
+  fake.install();
+  barcode.read.mockResolvedValueOnce("5701234567899");
+  const onBarcode = vi.fn();
+  mount({ onBarcode });
+  fireEvent.click(screen.getByText("capture"));
+  await waitFor(() => {
+    expect(onBarcode).toHaveBeenCalledWith("5701234567899");
+  });
+  expect(fake.calls).toEqual([]);
+});
+it("reads a photo from the photo tile once, as soon as the sheet opens on it", async () => {
+  const fake = fetchFake().on("POST /api/spaces/s1/photo-meal", {
+    items: [guessed],
+    unmatched: [],
+  });
+  fake.install();
+  barcode.read.mockResolvedValueOnce(null);
+  mount({ photo: new Uint8Array([1, 2, 3]), onBarcode: vi.fn() });
+  expect(await screen.findByText("Apple · ca. 12 g")).toBeInTheDocument();
+  expect(fake.calls.map((call) => call.path)).toEqual(["/api/spaces/s1/photo-meal"]);
 });
 it("invalidates parsed foods on a description edit, including after a failed retry", async () => {
   const fake = fetchFake().on("POST /api/spaces/s1/parse", meal);
@@ -137,7 +165,11 @@ it("invalidates parsed foods on a description edit, including after a failed ret
 
 it("lists a feeling apart from the food with its picture, logs it through the symptoms route and adds the food", async () => {
   const fake = fetchFake()
-    .on("POST /api/spaces/s1/parse", { ...meal, unmatched: [], symptoms: [{ kind: "stomach-ache" }] })
+    .on("POST /api/spaces/s1/parse", {
+      ...meal,
+      unmatched: [],
+      symptoms: [{ kind: "stomach-ache" }],
+    })
     .on("POST /api/spaces/s1/symptoms", {
       id: "y1",
       kind: "stomach-ache",
@@ -225,7 +257,9 @@ it("never logs a feeling twice when the meal step fails and the person retries",
       <SayItSheet spaceId="s1" locale="da" onClose={vi.fn()} onAdd={onAdd} onSearch={vi.fn()} />
     </NextIntlClientProvider>,
   );
-  fireEvent.change(screen.getByLabelText("Skriv hvad der spises"), { target: { value: "svimmel" } });
+  fireEvent.change(screen.getByLabelText("Skriv hvad der spises"), {
+    target: { value: "svimmel" },
+  });
   fireEvent.click(screen.getByRole("button", { name: "Find maden" }));
   await screen.findByTestId("say-symptoms");
   fireEvent.click(screen.getByRole("button", { name: "Tilføj til måltidet" }));

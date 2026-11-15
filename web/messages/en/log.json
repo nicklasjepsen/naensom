@@ -4,7 +4,8 @@
   "entry": {
     "scan": "Scan",
     "pick": "Choose",
-    "say": "Say it"
+    "say": "Say it",
+    "photo": "Photo"
   },
   "search": {
     "phoneLabel": "Type what is being eaten",

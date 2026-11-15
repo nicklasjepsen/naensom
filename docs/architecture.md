@@ -126,7 +126,7 @@ calls only the endpoints on its own allow-list.
 ### `AiProvider`: where the optional AI help comes from
 
 - The interface: `shared/src/ai/types.ts`. A provider declares what it can do (`complete`, `vision`,
-  `embed`); the use cases (`shared/src/ai/parse/`, `estimate/`, `insight/`, `recipe/`, `search/`)
+  `embed`); the use cases (`shared/src/ai/parse/`, `estimate/`, `photo-meal/`, `insight/`, `recipe/`, `search/`)
   are written against it.
 - Say entry (`shared/src/ai/parse/`) has the model name a lookup row (`foodRef`), never copy its food:
   the strict output schema stays within the API's limit of 24 optional parameters, and nutrition can

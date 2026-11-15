@@ -65,6 +65,12 @@ export function PhoneLog(props: Props) {
               locale={props.locale}
               onClose={controller.closeSay}
               onAdd={controller.addParsed}
+              photo={controller.sayPhoto}
+              onBarcode={(code) => {
+                controller.closeSay();
+                phone.setView("entry");
+                void controller.submitBarcode(code);
+              }}
               onSearch={(query) => {
                 controller.setQuery(query);
                 controller.closeSay();
@@ -95,6 +101,7 @@ function EntryView({ controller, phone, locale }: Props) {
       )}
       <EntryTiles
         onSay={controller.sayEnabled ? controller.openSay : undefined}
+        onPhoto={controller.sayEnabled ? controller.openSayWithPhoto : undefined}
         onScan={() => {
           phone.setScanFailure(null);
           phone.setView("scan");
@@ -369,7 +376,7 @@ function ConfirmView({ controller, phone, timeZone, simpleMode }: Props) {
         <EatingInField controller={controller} simpleMode={simpleMode} />
         <TimeField controller={controller} at={at} timeZone={timeZone} />
         <PhotoField controller={controller} />
-              </div>
+      </div>
       <div className={styles.confirmFooter}>
         <TotalBar
           total={controller.total}

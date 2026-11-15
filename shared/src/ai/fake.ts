@@ -86,6 +86,7 @@ export function defaultFakeAnswer(call: RecordedAiCall): Answer {
       ],
       yieldPortions: 4,
     },
+    { items: [{ query: "Example pasta", kind: "dish", estimate: item }] },
   ];
   const schema = call.request.outputSchema;
   if (schema) {

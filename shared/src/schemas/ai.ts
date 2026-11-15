@@ -97,6 +97,28 @@ export const PhotoEstimate = z.strictObject({
   approx: z.literal(true),
 });
 export type PhotoEstimate = z.infer<typeof PhotoEstimate>;
+/**
+ * What a model reads off a meal photo before anything is matched: a short lookup query per food,
+ * the barcode digits when a package shows them, and its own guess for when nothing is found. The
+ * guess is never used when a lookup row matches; carbs come from the row then.
+ */
+export const PhotoReading = z.strictObject({
+  items: z
+    .array(
+      z.strictObject({
+        query: text.max(80),
+        kind: z.enum(["product", "dish"]),
+        barcode: z
+          .string()
+          .regex(/^\d{8,13}$/)
+          .optional(),
+        estimate: EstimatedItem,
+      }),
+    )
+    .min(1)
+    .max(10),
+});
+export type PhotoReading = z.infer<typeof PhotoReading>;
 export const NormalisedFood = z.strictObject({
   name: text.max(120),
   portions: z.array(Portion).max(4),
@@ -218,6 +240,8 @@ export type ParseRequest = z.infer<typeof ParseRequest>;
 export const EstimateRequest = z.strictObject({ photoDataUrl });
 export type EstimateRequest = z.infer<typeof EstimateRequest>;
 export const AskRequest = z.strictObject({ estimate: PhotoEstimate, photoDataUrl });
+export const PhotoMealRequest = z.strictObject({ photoDataUrl });
+export type PhotoMealRequest = z.infer<typeof PhotoMealRequest>;
 export type AskRequest = z.infer<typeof AskRequest>;
 export const UpdateInsightRequest = z.strictObject({ questions });
 /** What a model reads out of a recipe page, text or photo (v0.6.0 plan §4): names and amounts only. */

@@ -95,6 +95,8 @@ export function useLogController({
   const { subscribe } = useLiveFeed(spaceId, { readings: false });
   const [sayEnabled, setSayEnabled] = useState(false);
   const [sayOpen, setSayOpen] = useState(false);
+  /** A photo from the photo tile, handed to the Say sheet, which reads it once. */
+  const [sayPhoto, setSayPhoto] = useState<Uint8Array | null>(null);
   useEffect(() => {
     setSayEnabled(false);
     setSayOpen(false);
@@ -340,10 +342,17 @@ export function useLogController({
     sayEnabled: sayEnabled && !simpleMode,
     sayOpen: sayOpen && sayEnabled && !simpleMode,
     openSay: () => {
+      setSayPhoto(null);
       setSayOpen(true);
     },
     closeSay: () => {
       setSayOpen(false);
+    },
+    sayPhoto,
+    /** The photo tile: the Say sheet opens on the photo and turns it into a draft. */
+    openSayWithPhoto: (bytes: Uint8Array) => {
+      setSayPhoto(bytes);
+      setSayOpen(true);
     },
     addParsed: async (items: ParsedItem[]) => {
       const prepared = await prepareParsedItems(items, (candidate) =>

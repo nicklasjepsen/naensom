@@ -214,6 +214,10 @@ export function DesktopLog({ controller, spaceId, timeZone, userName, simpleMode
               locale={locale}
               onClose={controller.closeSay}
               onAdd={controller.addParsed}
+              onBarcode={(code) => {
+                controller.closeSay();
+                void controller.submitBarcode(code);
+              }}
               onSearch={(query) => {
                 controller.setQuery(query);
                 controller.closeSay();
@@ -277,7 +281,7 @@ export function DesktopLog({ controller, spaceId, timeZone, userName, simpleMode
           <EatingInField controller={controller} simpleMode={simpleMode} />
           <TimeField controller={controller} at={at} timeZone={timeZone} />
           <PhotoField controller={controller} />
-                    <TotalBar
+          <TotalBar
             total={controller.total}
             actionLabel={t("save")}
             shortcut={t("saveShortcut")}
