@@ -206,6 +206,29 @@ describe("Log-Telefon", () => {
     expect(screen.getByRole("button", { name: /Opret "rugbrød" med dine egne tal/ })).toBeVisible();
   });
 
+  it("offers to search Open Food Facts too while the answer is the as-you-type one", async () => {
+    api();
+    fake.on("GET /api/spaces/s1/lookup", (_call: unknown, url: URL) =>
+      url.searchParams.get("remote") === "true"
+        ? lookup()
+        : lookup({
+            results: [],
+            sources: { off: "skipped", frida: "ok" },
+            manual: { name: "sun lolly" },
+          }),
+    );
+    mount();
+    fireEvent.change(screen.getByRole("searchbox", { name: "Skriv hvad der spises" }), {
+      target: { value: "sun lolly" },
+    });
+    fireEvent.click(await screen.findByRole("button", { name: /Søg også i Open Food Facts/ }));
+    await waitFor(() => {
+      expect(lookups().at(-1)).toBe("/api/spaces/s1/lookup?q=sun+lolly&remote=true");
+    });
+    expect(await screen.findByText("Rugbrød, Fiktivt Bageri")).toBeVisible();
+    expect(screen.queryByRole("button", { name: /Søg også i/ })).toBeNull();
+  });
+
   it("shows a notice for a source that did not answer", async () => {
     api();
     fake.on("GET /api/spaces/s1/lookup", lookup({ sources: { off: "rate-limited" } }));
@@ -495,6 +518,28 @@ describe("scanning", () => {
       ),
     ).toBeVisible();
     expect(lookups()).toEqual(["/api/spaces/s1/lookup?barcode=2000000000015"]);
+  });
+
+  it("does not call a typed barcode unknown when Open Food Facts did not answer", async () => {
+    api();
+    fake.on(
+      "GET /api/spaces/s1/lookup",
+      lookup({ results: [], sources: { off: "error" }, manual: { barcode: "2000000000015" } }),
+    );
+    mount();
+    // No camera in the test: the scanner falls back to the typed field.
+    fireEvent.click(screen.getByRole("button", { name: "Scan" }));
+    const field = await screen.findByRole("searchbox", { name: "Stregkode" });
+    fireEvent.change(field, { target: { value: "2000000000015" } });
+    fireEvent.keyDown(field, { key: "Enter" });
+    expect(await screen.findByText("Open Food Facts svarer ikke lige nu")).toBeVisible();
+    expect(screen.queryByText("Stregkode 2000000000015")).toBeNull();
+    expect(screen.getByRole("searchbox", { name: "Skriv hvad der spises" })).toHaveValue(
+      "2000000000015",
+    );
+    // "Jeg kender tallet selv" is still there, with the barcode prefilled.
+    fireEvent.click(screen.getByRole("button", { name: /Jeg kender tallet selv/ }));
+    expect(await screen.findByText("Stregkode 2000000000015")).toBeVisible();
   });
 
   it("runs ?barcode= from the Now header on load", async () => {

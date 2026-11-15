@@ -38,7 +38,7 @@ import {
   type EatingIn,
   type MealDraft,
 } from "@/components/meal/draft";
-import { isLibraryFood } from "@/components/meal/LookupResults";
+import { isLibraryFood, sourcesDown } from "@/components/meal/LookupResults";
 import { asTypedBarcode } from "@/lib/barcode/detect";
 import { localeHref, type AppLocale } from "@/lib/i18n/routing";
 
@@ -208,6 +208,13 @@ export function useLogController({
         await pick(first);
         return "found" as const;
       }
+      // A source that did not answer has not said the barcode is unknown: show the answer, with
+      // its "not answering" notice and "Jeg kender tallet selv", in the search field.
+      if (sourcesDown(answer).length > 0) {
+        setManual(null);
+        setQuery(key);
+        return "down" as const;
+      }
       // An unknown barcode lands on "Jeg kender tallet selv" with the barcode prefilled.
       openManual(answer.manual.name ?? "", answer.manual.barcode ?? code);
       return "unknown" as const;
@@ -363,6 +370,22 @@ export function useLogController({
     },
     response: answered?.key === query.trim() ? answered.response : null,
     submitted,
+    /**
+     * The answer on screen came from the as-you-type lookup, which leaves remote sources out:
+     * the results offer a row that searches every source, the same as Enter.
+     */
+    canSearchAll:
+      !simpleMode &&
+      query.trim().length >= 3 &&
+      submitted !== query.trim() &&
+      !asTypedBarcode(query),
+    searchAll: () => void submit(query),
+    /** "Jeg kender tallet selv" from the results, with a looked-up barcode prefilled. */
+    openManualFromResults: () => {
+      const answer = answered?.key === query.trim() ? answered.response : null;
+      const barcode = answer?.manual.barcode;
+      openManual(answer?.manual.name ?? (barcode ? "" : query.trim()), barcode);
+    },
     lookupFailed,
     pickFailed,
     favourites,

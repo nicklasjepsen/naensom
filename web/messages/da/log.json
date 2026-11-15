@@ -32,6 +32,10 @@
     "other": "Anden kilde"
   },
   "sourceDown": "{source} svarer ikke lige nu",
+  "searchAll": {
+    "title": "Søg også i {sources}",
+    "subtitle": "Det samme som Søg på tastaturet"
+  },
   "offline": "Ingen forbindelse lige nu",
   "manual": {
     "title": "Jeg kender tallet selv",

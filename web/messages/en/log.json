@@ -32,6 +32,10 @@
     "other": "Other source"
   },
   "sourceDown": "{source} is not answering right now",
+  "searchAll": {
+    "title": "Also search {sources}",
+    "subtitle": "The same as Search on the keyboard"
+  },
   "offline": "No connection right now",
   "manual": {
     "title": "I know the number myself",

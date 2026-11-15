@@ -18,6 +18,19 @@ import { useSourceLine } from "./source-line";
 
 const DOWN = new Set(["timeout", "error", "rate-limited"]);
 
+/** The sources that did not answer this lookup. */
+export function sourcesDown(response: LookupResponse): string[] {
+  return Object.entries(response.sources)
+    .filter(([, status]) => DOWN.has(status))
+    .map(([id]) => id);
+}
+/** Food sources this lookup left out because it was the as-you-type one (`remote: false`). */
+function sourcesSkipped(response: LookupResponse): string[] {
+  return Object.entries(response.sources)
+    .filter(([id, status]) => status === "skipped" && id !== "semantic")
+    .map(([id]) => id);
+}
+
 export const isLibraryFood = (food: FoodView | FoodCandidate): food is FoodView => "id" in food;
 
 /**
@@ -32,6 +45,7 @@ export function LookupResults({
   highlighted,
   onPick,
   onManual,
+  onSearchAll,
   desktop = false,
 }: {
   response: LookupResponse;
@@ -39,13 +53,16 @@ export function LookupResults({
   highlighted?: number;
   onPick: (result: LookupResult) => void;
   onManual: () => void;
+  /** Given while the answer is the as-you-type one: a row that searches every source. */
+  onSearchAll?: (() => void) | undefined;
   desktop?: boolean;
 }) {
   const t = useTranslations("log");
   const recipe = useTranslations("recipe.waysIn");
   const locale = resolveLocale(useLocale());
   const { line, sourceName } = useSourceLine();
-  const down = Object.entries(response.sources).filter(([, status]) => DOWN.has(status));
+  const down = sourcesDown(response);
+  const skipped = onSearchAll ? sourcesSkipped(response) : [];
   const manualName = response.manual.name ?? query.trim();
   return (
     <div className={styles.results} data-testid="lookup-results">
@@ -56,7 +73,7 @@ export function LookupResults({
       ) : (
         response.results.length > 0 && <p className={styles.resultsMeta}>{t("results.ownFirst")}</p>
       )}
-      {down.map(([id]) => (
+      {down.map((id) => (
         <Notice key={id} tone="sunken" role="status">
           {t("sourceDown", { source: sourceName(id) })}
         </Notice>
@@ -88,6 +105,20 @@ export function LookupResults({
             </li>
           );
         })}
+        {skipped.length > 0 && (
+          <li className={styles.resultItem}>
+            <button type="button" className={styles.manualRow} onClick={onSearchAll}>
+              <strong>
+                {t("searchAll.title", {
+                  sources: new Intl.ListFormat(locale, { type: "conjunction" }).format(
+                    skipped.map(sourceName),
+                  ),
+                })}
+              </strong>
+              <span>{t("searchAll.subtitle")}</span>
+            </button>
+          </li>
+        )}
         <li
           className={styles.resultItem}
           data-highlighted={highlighted === response.results.length ? "true" : undefined}

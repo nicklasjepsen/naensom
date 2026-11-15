@@ -1,7 +1,7 @@
 # Recorded OFF response shapes
 
-Hand-written fixtures in OFF's documented v2 product and legacy text-search
-response formats. Foods, brands, quantities and nutritional values are fictional;
+Hand-written fixtures in OFF's documented v2 product and Search-a-licious
+(`search.openfoodfacts.org/search`, products under `hits`, brands as a list) response formats. Foods, brands, quantities and nutritional values are fictional;
 all example barcodes are in restricted-circulation ranges. No production product
 response or image is stored. `rate-limited.json` accompanies HTTP 429.
 

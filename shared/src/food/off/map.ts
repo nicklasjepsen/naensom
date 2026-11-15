@@ -10,7 +10,19 @@ const Product = z.looseObject({
   product_name: z.string().optional(),
   product_name_da: z.string().optional(),
   product_name_en: z.string().optional(),
-  brands: z.string().optional(),
+  // The product API sends a comma-separated string, Search-a-licious a list.
+  brands: z
+    .union([
+      z.string(),
+      z.array(z.string()).transform((list) =>
+        list
+          .map((b) => b.trim())
+          .filter(Boolean)
+          .join(", "),
+      ),
+    ])
+    .optional()
+    .catch(undefined),
   // A string or anything else than a list of tags is ignored, never a reason to drop the product.
   categories_tags: z.array(z.string()).catch([]),
   nutriments: z.looseObject({ carbohydrates_100g: z.unknown().optional() }).optional(),

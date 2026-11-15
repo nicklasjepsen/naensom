@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Locale } from "../../schemas/settings";
 import { normaliseBarcode } from "../barcode";
+import { foldForSearch } from "../search";
 import type { FoodSource, FoodSourceResult } from "../types";
 import { mapProduct } from "./map";
 import { type OffRateLimits, processLimits } from "./rate-limit";
@@ -12,12 +13,31 @@ interface Options {
   locale?: Locale;
   limits?: OffRateLimits;
 }
-const SearchResponse = z.looseObject({ products: z.array(z.unknown()) });
+const SearchResponse = z.looseObject({ hits: z.array(z.unknown()) });
 const ProductResponse = z.looseObject({ status: z.number(), product: z.unknown().optional() });
 const result = (
   status: FoodSourceResult["status"],
   candidates: FoodSourceResult["candidates"] = [],
 ): FoodSourceResult => ({ status, candidates });
+/**
+ * OFF's country tag for an ISO 3166 code, from the English region name ("dk" → "en:denmark",
+ * "gb" → "en:united-kingdom"); null when the runtime does not know the code.
+ */
+function countryTag(code: string): string | null {
+  const name = new Intl.DisplayNames(["en"], { type: "region" }).of(code.toUpperCase());
+  if (!name || name.toUpperCase() === code.toUpperCase()) return null;
+  const slug = foldForSearch(name)
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return slug ? `en:${slug}` : null;
+}
+/** The user's words as plain search terms: no Lucene operator, quote or field reaches OFF. */
+function plainTerms(q: string): string {
+  return q
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
 class RequestFailure extends Error {
   constructor(readonly status: FoodSourceResult["status"]) {
     super(status);
@@ -28,11 +48,13 @@ export class OffSource implements FoodSource {
   readonly kind = "remote";
   private readonly limits: OffRateLimits;
   private readonly country: string;
+  private readonly countryTag: string | null;
   constructor(private readonly options: Options) {
     this.limits = options.limits ?? processLimits;
     const country = options.country?.trim().toLowerCase();
     this.country = country?.length ? country : "world";
     if (!/^[a-z]{2}$|^world$/.test(this.country)) throw new Error("Invalid OFF country");
+    this.countryTag = this.country === "world" ? null : countryTag(this.country);
   }
   private async request(
     url: URL,
@@ -76,30 +98,37 @@ export class OffSource implements FoodSource {
       return result(this.failure(error, signal));
     }
   }
+  /**
+   * Free text goes to Search-a-licious (search.openfoodfacts.org): the legacy `cgi/search.pl`
+   * answers 503 most of the time since November 2026. Country products first, then the world.
+   */
   async search(q: string, locale: Locale, signal: AbortSignal): Promise<FoodSourceResult> {
     const candidates: FoodSourceResult["candidates"] = [];
+    const terms = plainTerms(q);
+    if (!terms) return result("ok");
     try {
       const seen = new Set<string>();
-      const hosts = this.country === "world" ? ["world"] : [this.country, "world"];
-      for (const host of hosts) {
-        const url = new URL(`https://${host}.openfoodfacts.org/cgi/search.pl`);
+      const langs = [...new Set([locale, this.options.locale ?? "en", "en"])].join(",");
+      const queries = this.countryTag
+        ? [`${terms} countries_tags:"${this.countryTag}"`, terms]
+        : [terms];
+      for (const query of queries) {
+        const url = new URL("https://search.openfoodfacts.org/search");
         url.search = new URLSearchParams({
-          search_terms: q,
-          search_simple: "1",
-          action: "process",
-          json: "1",
+          q: query,
+          langs,
           page_size: "10",
           fields: this.fields(locale),
         }).toString();
         const body = SearchResponse.parse(await this.request(url, "search", signal));
-        for (const product of body.products) {
+        for (const product of body.hits) {
           const candidate = mapProduct(product, locale);
           if (candidate && !seen.has(candidate.sourceRef)) {
             seen.add(candidate.sourceRef);
             candidates.push(candidate);
           }
         }
-        if (body.products.length >= 5) break;
+        if (body.hits.length >= 5) break;
       }
       return result("ok", candidates.slice(0, 10));
     } catch (error) {

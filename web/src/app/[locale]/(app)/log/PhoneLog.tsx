@@ -118,9 +118,8 @@ function EntryView({ controller, phone, locale }: Props) {
           response={controller.response}
           query={controller.query}
           onPick={(result) => void controller.pick(result)}
-          onManual={() => {
-            controller.openManual(controller.response?.manual.name ?? controller.query.trim());
-          }}
+          onManual={controller.openManualFromResults}
+          {...(controller.canSearchAll ? { onSearchAll: controller.searchAll } : {})}
         />
       ) : (
         !hasQuery && (
@@ -244,8 +243,9 @@ function TypeBarcodeView({ controller, phone }: Props) {
         onChange={setValue}
         onSubmit={(raw) => {
           void controller.submitBarcode(raw).then((outcome) => {
-            // "found" has already opened the confirm screen through the controller.
-            if (outcome === "unknown") phone.setView("entry");
+            // "found" has already opened the confirm screen through the controller; "down" shows
+            // the answer with its notice in the search.
+            if (outcome === "unknown" || outcome === "down") phone.setView("entry");
           });
         }}
       />
@@ -369,7 +369,7 @@ function ConfirmView({ controller, phone, timeZone, simpleMode }: Props) {
         <EatingInField controller={controller} simpleMode={simpleMode} />
         <TimeField controller={controller} at={at} timeZone={timeZone} />
         <PhotoField controller={controller} />
-              </div>
+      </div>
       <div className={styles.confirmFooter}>
         <TotalBar
           total={controller.total}

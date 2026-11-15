@@ -237,9 +237,8 @@ export function DesktopLog({ controller, spaceId, timeZone, userName, simpleMode
                 query={controller.query}
                 highlighted={highlighted}
                 onPick={(result) => void controller.pick(result)}
-                onManual={() => {
-                  controller.openManual(response.manual.name ?? controller.query.trim());
-                }}
+                onManual={controller.openManualFromResults}
+                {...(controller.canSearchAll ? { onSearchAll: controller.searchAll } : {})}
               />
             ) : (
               <>
@@ -277,7 +276,7 @@ export function DesktopLog({ controller, spaceId, timeZone, userName, simpleMode
           <EatingInField controller={controller} simpleMode={simpleMode} />
           <TimeField controller={controller} at={at} timeZone={timeZone} />
           <PhotoField controller={controller} />
-                    <TotalBar
+          <TotalBar
             total={controller.total}
             actionLabel={t("save")}
             shortcut={t("saveShortcut")}

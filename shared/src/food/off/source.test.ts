@@ -89,8 +89,8 @@ describe("OFF fixture adapter", () => {
     ).not.toHaveProperty("category");
     const plain = (await fixture("product-found")) as { product: object };
     expect(mapProduct(plain.product, "da")).not.toHaveProperty("category");
-    const search = (await fixture("search-results")) as { products: object[] };
-    for (const product of search.products)
+    const search = (await fixture("search-results")) as { hits: object[] };
+    for (const product of search.hits)
       expect(mapProduct(product, "da")).not.toHaveProperty("category");
     const text = fake(["search-results"]);
     await source(text.fetcher).search("rugbrød", "da", signal());
@@ -109,23 +109,22 @@ describe("OFF fixture adapter", () => {
       candidates: [],
     });
   });
-  it("searches country first, fills from world, deduplicates and uses the requested language", async () => {
+  it("searches Search-a-licious for the country first, fills from world, deduplicates and uses the requested language", async () => {
     const f = fake(["search-results", "search-results"]);
     const result = await source(f.fetcher).search("rugbrød", "en", signal());
     expect(result.candidates).toHaveLength(2);
     expect(result.candidates[0]?.name).toBe("Fictional rye bread, Fiktiv Bageri");
-    expect(f.calls.map((c) => c.url.host)).toEqual([
-      "dk.openfoodfacts.org",
-      "world.openfoodfacts.org",
+    expect(result.candidates[1]?.name).toBe("Fictional crispbread, Imaginary Bakery");
+    expect(f.calls.map((c) => c.url.searchParams.get("q"))).toEqual([
+      'rugbrød countries_tags:"en:denmark"',
+      "rugbrød",
     ]);
     for (const call of f.calls) {
-      expect(call.url.pathname).toBe("/cgi/search.pl");
+      expect(call.url.host).toBe("search.openfoodfacts.org");
+      expect(call.url.pathname).toBe("/search");
       expect(Object.fromEntries(call.url.searchParams)).toMatchObject({
-        search_terms: "rugbrød",
-        json: "1",
         page_size: "10",
-        search_simple: "1",
-        action: "process",
+        langs: "en,da",
       });
       expect(call.url.searchParams.get("fields")).toContain("product_name_en");
       expect(new Headers(call.init?.headers).get("User-Agent")).toContain("Naensom/test");
@@ -133,8 +132,37 @@ describe("OFF fixture adapter", () => {
     for (const candidate of result.candidates)
       expect(FoodCandidate.parse(candidate)).not.toHaveProperty("verified");
   });
+  it("sends two words as plain terms and never passes query syntax through", async () => {
+    const f = fake(["search-results"]);
+    await source(f.fetcher).search("Sun Lolly", "da", signal());
+    expect(f.calls[0]?.url.searchParams.get("q")).toBe('sun lolly countries_tags:"en:denmark"');
+    const g = fake(["search-results"]);
+    await source(g.fetcher).search('code:1 OR "x" -(brands:*)', "da", signal());
+    expect(g.calls[0]?.url.searchParams.get("q")).toBe(
+      'code 1 or x brands countries_tags:"en:denmark"',
+    );
+    const h = fake(["search-results"]);
+    expect(await source(h.fetcher).search(' "*" ', "da", signal())).toEqual({
+      status: "ok",
+      candidates: [],
+    });
+    expect(h.calls).toHaveLength(0);
+  });
+  it("derives the country tag from the ISO code and queries the world once without a country", async () => {
+    const gb = fake(["search-results"]);
+    await new OffSource({ fetch: gb.fetcher, country: "GB", version: "test" }).search(
+      "bread",
+      "en",
+      signal(),
+    );
+    expect(gb.calls[0]?.url.searchParams.get("q")).toBe('bread countries_tags:"en:united-kingdom"');
+    expect(gb.calls[0]?.url.searchParams.get("langs")).toBe("en");
+    const world = fake(["search-empty"]);
+    await new OffSource({ fetch: world.fetcher, version: "test" }).search("bread", "en", signal());
+    expect(world.calls.map((c) => c.url.searchParams.get("q"))).toEqual(["bread"]);
+  });
   it("keeps country priority and caps at ten; five country results skip world", async () => {
-    const template = (await fixture("search-results")) as { products: unknown[] };
+    const template = (await fixture("search-results")) as { hits: unknown[] };
     // Use valid checksums for the twelve fictional codes.
     const { normaliseBarcode } = await import("../barcode");
     const codes = Array.from(
@@ -146,7 +174,7 @@ describe("OFF fixture adapter", () => {
     const fetcher = vi.fn<typeof fetch>(() =>
       Promise.resolve(
         Response.json({
-          products: codes.map((code) => ({ ...(template.products[0] as object), code })),
+          hits: codes.map((code) => ({ ...(template.hits[0] as object), code })),
         }),
       ),
     );
@@ -172,9 +200,11 @@ describe("OFF fixture adapter", () => {
       const limits = new OffRateLimits();
       if (reason === "budget") for (let i = 0; i < 9; i++) limits.search.take();
       const fetcher: typeof fetch = (url) => {
+        // The second (world) query has no country filter.
         if (
-          new URL(url instanceof Request ? url.url : url.toString()).hostname ===
-          "world.openfoodfacts.org"
+          !new URL(url instanceof Request ? url.url : url.toString()).searchParams
+            .get("q")
+            ?.includes("countries_tags")
         )
           return Promise.reject(new Error("offline"));
         return Promise.resolve(Response.json(country));
@@ -203,7 +233,7 @@ describe("OFF fixture adapter", () => {
     expect(limited.calls).toHaveLength(1);
     const failed: typeof fetch = () => Promise.reject(new Error("offline"));
     expect((await source(failed).search("bread", "en", signal())).status).toBe("error");
-    const malformed: typeof fetch = () => Promise.resolve(Response.json({ products: "invalid" }));
+    const malformed: typeof fetch = () => Promise.resolve(Response.json({ hits: "invalid" }));
     expect((await source(malformed).search("bread", "en", signal())).status).toBe("error");
     const abort = new AbortController();
     abort.abort();

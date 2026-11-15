@@ -13,16 +13,22 @@ argument. Without a country the source queries the world host once.
 
 - Product reads: `https://world.openfoodfacts.org/api/v2/product/<barcode>.json`.
   UPC-A is normalized to EAN-13. Status 0 (including HTTP 404) is an ordinary miss.
-- Text: `https://<country>.openfoodfacts.org/cgi/search.pl`, with `search_terms`,
-  `search_simple=1`, `action=process`, `json=1`, `page_size=10`, and `fields`.
-  Fewer than five country rows triggers the world host. Country results precede
-  world results, normalized codes deduplicate them, and only ten are returned.
-  If the optional world request fails, existing country matches are retained.
+- Text: `https://search.openfoodfacts.org/search` (Search-a-licious), with `q`, `langs`
+  (the request locale, the barcode locale and `en`), `page_size=10` and `fields`. The legacy
+  `cgi/search.pl` answered HTTP 503 to most requests from November 2026, so it is no longer
+  used. The user's words are sent as plain lower-case terms: every character that is not a
+  letter or digit becomes a space, so no query syntax (fields, quotes, operators) reaches OFF.
+  With a country, the first query adds `countries_tags:"en:<country>"`, the tag derived from
+  the ISO code's English name (`dk` → `en:denmark`, `gb` → `en:united-kingdom`); fewer than
+  five country hits triggers the same query without the filter. Country results precede
+  world results, normalized codes deduplicate them, and only ten are returned. If the
+  optional world request fails, existing country matches are retained.
 - Fields: code, localized/default product name, brands, categories_tags, nutriments,
   serving_size, serving_quantity, serving_quantity_unit. The food category (v0.6.0) is
   the most specific `categories_tags` entry the table in `shared/src/food/category/off-tags.ts`
   knows (OFF lists tags general to specific); a product without a known tag has none. The displayed name is
-  `{localized name or default name}, {brands}` (brand suffix omitted if absent).
+  `{localized name or default name}, {brands}` (brand suffix omitted if absent; Search-a-licious
+  sends brands as a list, joined with ", ").
   Carbohydrates come only from `carbohydrates_100g`, rounded to one decimal.
   Missing/invalid carbohydrates stay null. A serving needs known carbohydrates
   and a mass in grams; volumes are never treated as grams. Portion carbs round
@@ -41,8 +47,7 @@ processes sharing one public IP still share the upstream limit; 429 is handled.
 Submit remote text searches explicitly, never for each keystroke.
 
 [OFF API documentation](https://openfoodfacts.github.io/openfoodfacts-server/api/)
-still supports v2 product reads and the legacy free-text endpoint required by
-this lane. OFF data is ODbL with individual contents under DbCL; images have
+still supports v2 product reads; free text uses Search-a-licious, OFF's search service. OFF data is ODbL with individual contents under DbCL; images have
 separate CC BY-SA terms and are excluded. All plugin results are strict
 `FoodCandidate`s with no `verified` property. The lookup/cache and space-copy
 services create them with `verified: false`; a human verifies the space copy.
