@@ -7,7 +7,8 @@ import { BackButton } from "../ui/BackButton";
 import { Button } from "../ui/Button";
 import { Notice } from "../ui/Notice";
 import { createSymptom } from "../symptoms/api";
-import { parseText, estimatePhoto } from "./api";
+import { readBarcodeInPhoto } from "@/lib/barcode/detect";
+import { parseText, photoMeal } from "./api";
 import { MicButton } from "./MicButton";
 import { ParsedItems, type ParsedSymptom } from "./ParsedItems";
 import styles from "./say.module.css";
@@ -19,8 +20,14 @@ export function SayItSheet({
   onClose,
   onAdd,
   onSearch,
+  photo = null,
+  onBarcode,
 }: {
   active?: boolean;
+  /** A photo taken from Log's photo tile: the sheet opens on it and reads it at once. */
+  photo?: Uint8Array | null;
+  /** A barcode found in a photo; the caller looks it up like a scan, with no AI call. */
+  onBarcode?: (code: string) => void;
   spaceId: string;
   locale: string;
   onClose: () => void;
@@ -58,6 +65,28 @@ export function SayItSheet({
       if (previous instanceof HTMLElement) previous.focus();
     };
   }, [active]);
+  /**
+   * A barcode in the photo is a scan (no AI call); anything else goes to photo-to-meal, whose
+   * draft lists matched foods with their real carbs and guesses marked as guesses.
+   */
+  function fromPhoto(bytes: Uint8Array) {
+    void run(async () => {
+      if (onBarcode) {
+        const code = await readBarcodeInPhoto(bytes).catch(() => null);
+        if (code) {
+          onBarcode(code);
+          return;
+        }
+      }
+      show(await photoMeal(spaceId, bytes));
+    });
+  }
+  const latestPhoto = useRef<Uint8Array | null>(null);
+  useEffect(() => {
+    if (!active || !photo || latestPhoto.current === photo) return;
+    latestPhoto.current = photo;
+    fromPhoto(photo);
+  });
   async function run(action: () => Promise<void>) {
     if (pending.current) return;
     pending.current = true;
@@ -143,18 +172,9 @@ export function SayItSheet({
         </Button>
       </form>
       <fieldset disabled={busy} className={styles.photos}>
-        <PhotoPicker
-          onPhoto={(bytes) =>
-            void run(async () => {
-              const estimate = await estimatePhoto(spaceId, bytes);
-              show({
-                items: estimate.items.map((item) => ({ query: item.name, estimate: item })),
-                unmatched: [],
-              });
-            })
-          }
-        />
+        <PhotoPicker onPhoto={fromPhoto} />
       </fieldset>
+      {busy && <p role="status">{t("looking")}</p>}
       {failed && (
         <Notice role="status" tone="sunken">
           {t("unavailable")}

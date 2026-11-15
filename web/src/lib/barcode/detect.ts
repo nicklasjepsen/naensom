@@ -236,3 +236,27 @@ export async function createBarcodeReader(options: ReaderOptions = {}): Promise<
   };
   return reader;
 }
+
+/**
+ * A barcode in a still photo, for the photo entry on Log: a package that shows its barcode is
+ * looked up like a scan, with real carb data and no AI call. A still has no second frame to
+ * confirm against, so the product found goes to the same confirm view as a scan, where the person
+ * sees its name before anything is added. Null when the photo shows no readable code.
+ */
+export async function readBarcodeInPhoto(bytes: Uint8Array): Promise<string | null> {
+  const bitmap = await createImageBitmap(new Blob([bytes as BlobPart], { type: "image/jpeg" }));
+  const canvas = document.createElement("canvas");
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) {
+    bitmap.close();
+    return null;
+  }
+  context.drawImage(bitmap, 0, 0);
+  bitmap.close();
+  const frame = context.getImageData(0, 0, canvas.width, canvas.height);
+  const reader = await createBarcodeReader({ grabFrame: () => frame });
+  // The native detector takes any image source; the reader's type names the scanner's video.
+  return reader.detect(canvas as unknown as HTMLVideoElement);
+}

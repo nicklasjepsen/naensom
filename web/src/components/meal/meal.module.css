@@ -8,6 +8,14 @@
 .entryTiles[data-say="true"] {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
+.entryTiles[data-say="true"][data-photo="true"] {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+/* The photo tile's picker wraps its button; the wrapper takes the grid cell. */
+.entryTiles > div {
+  display: grid;
+}
 .entryTile {
   display: flex;
   flex-direction: column;

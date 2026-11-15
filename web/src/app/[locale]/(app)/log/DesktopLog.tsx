@@ -214,6 +214,10 @@ export function DesktopLog({ controller, spaceId, timeZone, userName, simpleMode
               locale={locale}
               onClose={controller.closeSay}
               onAdd={controller.addParsed}
+              onBarcode={(code) => {
+                controller.closeSay();
+                void controller.submitBarcode(code);
+              }}
               onSearch={(query) => {
                 controller.setQuery(query);
                 controller.closeSay();

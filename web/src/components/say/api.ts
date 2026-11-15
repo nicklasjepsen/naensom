@@ -1,4 +1,4 @@
-import { AiUsage, ParsedMeal, PhotoEstimate } from "@naensom/shared/schemas/ai";
+import { AiUsage, ParsedMeal } from "@naensom/shared/schemas/ai";
 import { ParseAvailability } from "@/ai/parse/contract";
 import type { z } from "zod";
 
@@ -34,10 +34,11 @@ export async function aiUsage(spaceId: string): Promise<{ enabled: boolean }> {
 }
 export const parseText = (spaceId: string, text: string) =>
   request(spaceId, "parse", ParsedMeal, { text });
-export function estimatePhoto(spaceId: string, bytes: Uint8Array) {
+function dataUrl(bytes: Uint8Array): string {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  return request(spaceId, "estimates", PhotoEstimate, {
-    photoDataUrl: `data:image/jpeg;base64,${btoa(binary)}`,
-  });
+  return `data:image/jpeg;base64,${btoa(binary)}`;
 }
+/** A meal photo to a draft: matched foods where lookup finds them, guesses only where not. */
+export const photoMeal = (spaceId: string, bytes: Uint8Array) =>
+  request(spaceId, "photo-meal", ParsedMeal, { photoDataUrl: dataUrl(bytes) });

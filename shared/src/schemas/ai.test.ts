@@ -68,6 +68,21 @@ const cases: [keyof typeof ai, z.ZodType, unknown, unknown][] = [
   ],
   ["PhotoEstimate", ai.PhotoEstimate, estimate, { ...estimate, approx: false }],
   [
+    "PhotoReading",
+    ai.PhotoReading,
+    {
+      items: [
+        {
+          query: "Example oat bar",
+          kind: "product",
+          barcode: "5701234567899",
+          estimate: estimate.items[0],
+        },
+      ],
+    },
+    { items: [{ query: "Example oat bar", kind: "product", barcode: "12ab" }] },
+  ],
+  [
     "NormalisedFood",
     ai.NormalisedFood,
     { name: "Example pasta", portions: [] },
@@ -108,6 +123,12 @@ const cases: [keyof typeof ai, z.ZodType, unknown, unknown][] = [
   [
     "EstimateRequest",
     ai.EstimateRequest,
+    { photoDataUrl },
+    { photoDataUrl: "https://example.invalid/photo.jpg" },
+  ],
+  [
+    "PhotoMealRequest",
+    ai.PhotoMealRequest,
     { photoDataUrl },
     { photoDataUrl: "https://example.invalid/photo.jpg" },
   ],

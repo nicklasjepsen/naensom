@@ -65,6 +65,12 @@ export function PhoneLog(props: Props) {
               locale={props.locale}
               onClose={controller.closeSay}
               onAdd={controller.addParsed}
+              photo={controller.sayPhoto}
+              onBarcode={(code) => {
+                controller.closeSay();
+                phone.setView("entry");
+                void controller.submitBarcode(code);
+              }}
               onSearch={(query) => {
                 controller.setQuery(query);
                 controller.closeSay();
@@ -95,6 +101,7 @@ function EntryView({ controller, phone, locale }: Props) {
       )}
       <EntryTiles
         onSay={controller.sayEnabled ? controller.openSay : undefined}
+        onPhoto={controller.sayEnabled ? controller.openSayWithPhoto : undefined}
         onScan={() => {
           phone.setScanFailure(null);
           phone.setView("scan");

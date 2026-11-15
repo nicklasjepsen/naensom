@@ -4,7 +4,8 @@
   "entry": {
     "scan": "Scan",
     "pick": "Vælg",
-    "say": "Sig det"
+    "say": "Sig det",
+    "photo": "Foto"
   },
   "search": {
     "phoneLabel": "Skriv hvad der spises",

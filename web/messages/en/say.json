@@ -17,5 +17,6 @@
   "grams": "Weight (g)",
   "carbs": "Carbs (g)",
   "remove": "Remove",
-  "instead": "Say it instead"
+  "instead": "Say it instead",
+  "looking": "Finding the food …"
 }
