@@ -36,10 +36,11 @@ function setup(simpleMode = false, embed: SearchEmbed | null = null) {
   auth.addMember("viewer", "s1", "viewer");
   auth.addMember("outsider", "other", "carer");
   const db = auth.db;
-  const original = db.session.findUnique.bind(db.session);
-  db.session.findUnique = vi.fn(async (args: { where: { id: string } }) => {
-    const row = await original({ ...args, include: { user: { include: { memberships: true } } } });
-    return row ? { ...row, user: { ...row.user, simpleMode, locale: "en" } } : null;
+  // loadSession reads the user with user.findFirst; this session's user is changed there.
+  const original = db.user.findFirst.bind(db.user);
+  db.user.findFirst = vi.fn(async (args: Parameters<typeof original>[0]) => {
+    const user = await original(args);
+    return user ? { ...user, simpleMode, locale: "en" } : null;
   }) as unknown as typeof original;
   const repo = new MemoryFoodRepository([food("f1", true), food("f2", false)]);
   const source = new FakeFoodSource({ id: "fake-remote", kind: "remote" });

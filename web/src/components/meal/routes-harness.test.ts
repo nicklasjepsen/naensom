@@ -126,13 +126,11 @@ export function realRoutes() {
   for (const user of live.users) user.name = { carer: "Jonas", child: "Alma" }[user.id] ?? "Lone";
   const simpleMode = new Set<string>(["child"]);
   const sessionDb = live.db;
-  const findSession = sessionDb.session.findUnique.bind(sessionDb.session);
-  sessionDb.session.findUnique = (async (args: { where: { id: string } }) => {
-    const row = (await findSession(args as never)) as { user: Row } | null;
-    return row
-      ? { ...row, user: { ...row.user, simpleMode: simpleMode.has(String(row.user.id)) } }
-      : null;
-  }) as unknown as typeof sessionDb.session.findUnique;
+  const findUser = sessionDb.user.findFirst.bind(sessionDb.user);
+  sessionDb.user.findFirst = (async (args: Parameters<typeof findUser>[0]) => {
+    const user = (await findUser(args)) as Row | null;
+    return user ? { ...user, simpleMode: simpleMode.has(String(user.id)) } : null;
+  }) as unknown as typeof sessionDb.user.findFirst;
 
   const photos = new MemoryPhotoStore();
   const events: string[] = [];

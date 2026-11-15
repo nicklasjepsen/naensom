@@ -82,26 +82,22 @@ export class FakeLiveDb {
   }
 
   get db(): LiveDb & SessionDb {
+    // `loadSession` reads the session, its user and the user's memberships as three flat queries;
+    // the user and the memberships are found through `{ sessions: { some: { id } } }`.
+    const userOfSession = (sessionId: string) => {
+      const session = this.sessions.find((s) => s.id === sessionId);
+      return session ? this.users.find((u) => u.id === session.userId) : undefined;
+    };
     const sessionDelegate = {
       findUnique: (args: { where: { id: string } }) => {
         const session = this.sessions.find((s) => s.id === args.where.id);
-        const user = session ? this.users.find((u) => u.id === session.userId) : undefined;
-        if (!session || !user) return Promise.resolve(null);
+        if (!session) return Promise.resolve(null);
         const at = this.now();
         return Promise.resolve({
           id: session.id,
-          userId: user.id,
+          userId: session.userId,
           expiresAt: new Date(at.getTime() + 1000 * 60 * 60),
           lastSeenAt: at,
-          user: {
-            id: user.id,
-            name: user.name,
-            simpleMode: user.simpleMode ?? false,
-            accent: "olive",
-            theme: "system",
-            locale: "da",
-            memberships: user.memberships.map((m) => ({ ...m, userId: user.id })),
-          },
         });
       },
       update: () => {
@@ -110,6 +106,18 @@ export class FakeLiveDb {
       },
     };
     const userDelegate = {
+      findFirst: (args: { where: { sessions: { some: { id: string } } } }) => {
+        const user = userOfSession(args.where.sessions.some.id);
+        if (!user) return Promise.resolve(null);
+        return Promise.resolve({
+          id: user.id,
+          name: user.name,
+          simpleMode: user.simpleMode ?? false,
+          accent: "olive",
+          theme: "system",
+          locale: "da",
+        });
+      },
       update: () => {
         this.updates.push("user");
         return Promise.resolve({});
@@ -179,6 +187,13 @@ export class FakeLiveDb {
         ),
     };
     const membershipDelegate = {
+      findMany: (args: { where: { user: { sessions: { some: { id: string } } } } }) =>
+        Promise.resolve(
+          (userOfSession(args.where.user.sessions.some.id)?.memberships ?? []).map((m) => ({
+            spaceId: m.spaceId,
+            role: m.role,
+          })),
+        ),
       findUnique: (args: {
         where: { userId_spaceId: { userId: string; spaceId: string } };
         select?: { role?: boolean };
