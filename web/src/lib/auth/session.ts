@@ -102,7 +102,7 @@ export async function loadSession(
       } catch (error) {
         log.warn("session.touch-failed", {
           userId: row.userId,
-          error: error instanceof Error ? error.name : "unknown",
+          code: error instanceof Error ? error.name : "unknown",
         });
       } finally {
         touching.delete(row.id);
