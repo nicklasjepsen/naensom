@@ -162,12 +162,32 @@ function compare(a: unknown, b: unknown): number {
   return x < y ? -1 : x > y ? 1 : 0;
 }
 
-function matches(row: Row, where: Where | undefined): boolean {
+/** The table a row belongs to and every table, so a `where` can follow a relation. */
+interface MatchContext {
+  table: TableName;
+  tables: Tables;
+}
+
+function matches(row: Row, where: Where | undefined, context?: MatchContext): boolean {
   if (!where) return true;
   return Object.entries(where).every(([key, expected]) => {
     // Compound unique keys arrive as `{ userId_spaceId: { userId, spaceId } }`.
     if (key.includes("_") && isOperator(expected) && !("lt" in expected)) {
-      return matches(row, expected);
+      return matches(row, expected, context);
+    }
+    // A relation filter: `{ sessions: { some: { id } } }` on a to-many relation, or
+    // `{ user: { ...where } }` on a to-one relation.
+    const relation = context ? relations[context.table]?.[key] : undefined;
+    if (context && relation && isOperator(expected)) {
+      const nested = { table: relation.table, tables: context.tables };
+      const related = context.tables[relation.table].filter((r) =>
+        same(r[relation.to], row[relation.from]),
+      );
+      if (!relation.many) return related.some((r) => matches(r, expected, nested));
+      if (!("some" in expected) || Object.keys(expected).length !== 1) {
+        throw new Error(`fake db: only "some" is supported on ${context.table}.${key}`);
+      }
+      return related.some((r) => matches(r, expected.some as Where, nested));
     }
     const actual = row[key];
     if (isOperator(expected)) {
@@ -309,10 +329,26 @@ export class FakeAuthDb {
   private delegate(table: TableName, inTransaction: boolean) {
     const rows = () => this.tables[table];
     const record = (op: string) => this.operations.push({ table, op, inTransaction });
-    const find = (args: { where?: Where; include?: Record<string, unknown> } = {}) =>
+    const select = (row: Row, keys: Record<string, unknown> | undefined): Row =>
+      keys ? Object.fromEntries(Object.keys(keys).map((k) => [k, row[k]])) : row;
+    const context = (): MatchContext => ({ table, tables: this.tables });
+    const find = (
+      args: {
+        where?: Where;
+        include?: Record<string, unknown>;
+        select?: Record<string, unknown>;
+      } = {},
+    ) =>
       rows()
-        .filter((r) => matches(r, args.where))
-        .map((r) => this.include(table, r, args.include));
+        .filter((r) => matches(r, args.where, context()))
+        .map((r) => this.include(table, r, args.include))
+        // A flat select of columns narrows the row as Prisma would; nested selects are not modelled
+        // and return the whole row, as before.
+        .map((r) =>
+          args.select && Object.values(args.select).every((v) => v === true)
+            ? select(r, args.select)
+            : r,
+        );
     const strip = (data: Row, base?: Row): Row => {
       // Of the nested writes only `increment` is modelled: `emit()` allocates `Space.lastSeq` with it.
       const out: Row = {};
@@ -328,8 +364,6 @@ export class FakeAuthDb {
       }
       return out;
     };
-    const select = (row: Row, keys: Record<string, unknown> | undefined): Row =>
-      keys ? Object.fromEntries(Object.keys(keys).map((k) => [k, row[k]])) : row;
     return {
       create: (args: { data: Row; include?: Record<string, unknown> }) => {
         record("create");

@@ -25,7 +25,17 @@ const shared = vi.hoisted(() => {
           Promise.resolve(rows.find((r) => r.id === where.id) ?? null),
         update: () => Promise.resolve(null),
       },
-      user: { update: () => Promise.resolve(null) },
+      user: {
+        findFirst: ({ where }: { where: { sessions: { some: { id: string } } } }) =>
+          Promise.resolve(rows.find((r) => r.id === where.sessions.some.id)?.user ?? null),
+        update: () => Promise.resolve(null),
+      },
+      membership: {
+        findMany: ({ where }: { where: { user: { sessions: { some: { id: string } } } } }) =>
+          Promise.resolve(
+            rows.find((r) => r.id === where.user.sessions.some.id)?.user.memberships ?? [],
+          ),
+      },
     },
     emit: (...args: unknown[]) => {
       emitted.push(args);
@@ -47,6 +57,15 @@ vi.mock("next/headers", () => ({
       },
     }),
 }));
+
+/** Collects the deferred touches so a test can wait for them, as the response would not. */
+const pending: Promise<void>[] = [];
+const defer = (task: () => Promise<void>) => {
+  pending.push(task());
+};
+const settle = async () => {
+  await Promise.all(pending.splice(0));
+};
 
 const T0 = new Date("2026-10-15T08:00:00.000Z");
 const minutes = (n: number) => new Date(T0.getTime() + n * 60_000);
@@ -95,10 +114,18 @@ function fakeDb(rows: Row[]) {
       },
     },
     user: {
+      findFirst: ({ where }: { where: { sessions: { some: { id: string } } } }) =>
+        Promise.resolve(rows.find((r) => r.id === where.sessions.some.id)?.user ?? null),
       update: ({ data }: { where: { id: string }; data: { lastSeen: Date } }) => {
         touches.user.push(data.lastSeen);
         return Promise.resolve(null);
       },
+    },
+    membership: {
+      findMany: ({ where }: { where: { user: { sessions: { some: { id: string } } } } }) =>
+        Promise.resolve(
+          rows.find((r) => r.id === where.user.sessions.some.id)?.user.memberships ?? [],
+        ),
     },
   } as unknown as SessionDb;
   return { db, touches, emit, emitted };
@@ -160,34 +187,102 @@ describe("getSession", () => {
 describe("loadSession", () => {
   it("touches lastSeenAt and lastSeen at most once per hour", async () => {
     const { db, emit, touches } = fakeDb([alive()]);
-    await loadSession("sess-1", { db, emit, now: () => minutes(10) });
-    await loadSession("sess-1", { db, emit, now: () => minutes(59) });
+    await loadSession("sess-1", { db, emit, defer, now: () => minutes(10) });
+    await loadSession("sess-1", { db, emit, defer, now: () => minutes(59) });
+    await settle();
     expect(touches.session).toEqual([]);
     expect(touches.user).toEqual([]);
 
-    await loadSession("sess-1", { db, emit, now: () => minutes(60) });
-    await loadSession("sess-1", { db, emit, now: () => minutes(90) });
+    await loadSession("sess-1", { db, emit, defer, now: () => minutes(60) });
+    await settle();
+    await loadSession("sess-1", { db, emit, defer, now: () => minutes(90) });
+    await settle();
     expect(touches.session).toEqual([minutes(60)]);
     expect(touches.user).toEqual([minutes(60)]);
 
-    await loadSession("sess-1", { db, emit, now: () => minutes(125) });
+    await loadSession("sess-1", { db, emit, defer, now: () => minutes(125) });
+    await settle();
     expect(touches.session).toEqual([minutes(60), minutes(125)]);
+  });
+
+  it("reads the session, the user and the memberships at once, not one after another", async () => {
+    // Each read is a round trip to the database; started together they cost one.
+    const { db, emit } = fakeDb([alive()]);
+    const started: string[] = [];
+    let open: () => void = () => undefined;
+    const gate = new Promise<undefined>((resolve) => {
+      open = () => {
+        resolve(undefined);
+      };
+    });
+    const hold =
+      <T>(name: string, read: () => Promise<T>) =>
+      async () => {
+        started.push(name);
+        await gate;
+        return read();
+      };
+    const findUnique = db.session.findUnique.bind(db.session);
+    const findFirst = db.user.findFirst.bind(db.user);
+    const findMany = db.membership.findMany.bind(db.membership);
+    const slow = {
+      ...db,
+      session: { ...db.session, findUnique: (a: never) => hold("session", () => findUnique(a))() },
+      user: { ...db.user, findFirst: (a: never) => hold("user", () => findFirst(a))() },
+      membership: { findMany: (a: never) => hold("memberships", () => findMany(a))() },
+    } as unknown as SessionDb;
+    const loading = loadSession("sess-1", { db: slow, emit, defer, now: () => minutes(10) });
+    await Promise.resolve();
+    expect(started.sort()).toEqual(["memberships", "session", "user"]);
+    open();
+    await expect(loading).resolves.toEqual(expected);
+  });
+
+  it("touches after the response, not before the session is returned", async () => {
+    const { db, emit, touches, emitted } = fakeDb([alive()]);
+    const deferred: (() => Promise<void>)[] = [];
+    const session = await loadSession("sess-1", {
+      db,
+      emit,
+      defer: (task) => deferred.push(task),
+      now: () => minutes(60),
+    });
+    expect(session).toEqual(expected);
+    expect(touches).toEqual({ session: [], user: [] });
+    expect(emitted).toEqual([]);
+
+    await Promise.all(deferred.map((task) => task()));
+    expect(touches.session).toEqual([minutes(60)]);
+    expect(emitted).toHaveLength(2);
+  });
+
+  it("touches once when parallel requests of one session find it due", async () => {
+    const { db, emit, touches } = fakeDb([alive()]);
+    await Promise.all(
+      [1, 2, 3].map(() => loadSession("sess-1", { db, emit, defer, now: () => minutes(60) })),
+    );
+    await settle();
+    expect(touches.session).toEqual([minutes(60)]);
+    expect(touches.user).toEqual([minutes(60)]);
   });
 
   it("emits member.updated to every space of the user when lastSeen changes, and only then", async () => {
     // People shows "Sidst set", so the touch is a space-visible member write (CLAUDE.md: every
     // write emits). The session row is device bookkeeping and emits nothing.
     const { db, emit, emitted } = fakeDb([alive()]);
-    await loadSession("sess-1", { db, emit, now: () => minutes(30) });
+    await loadSession("sess-1", { db, emit, defer, now: () => minutes(30) });
+    await settle();
     expect(emitted).toEqual([]);
 
-    await loadSession("sess-1", { db, emit, now: () => minutes(60) });
+    await loadSession("sess-1", { db, emit, defer, now: () => minutes(60) });
+    await settle();
     expect(emitted).toEqual([
       ["s1", "member.updated", { userId: "u1" }],
       ["s2", "member.updated", { userId: "u1" }],
     ]);
 
-    await loadSession("sess-1", { db, emit, now: () => minutes(90) });
+    await loadSession("sess-1", { db, emit, defer, now: () => minutes(90) });
+    await settle();
     expect(emitted).toHaveLength(2);
   });
 });
@@ -220,10 +315,11 @@ describe("assertRole and requireRole", () => {
     shared.rows.splice(0, shared.rows.length, { ...alive(), lastSeenAt: new Date(0) });
     shared.emitted.splice(0, shared.emitted.length);
     cookieJar.set(SESSION_COOKIE, "sess-1");
-    await expect(requireRole("s1", { now: () => T0 }, "carer")).resolves.toEqual({
+    await expect(requireRole("s1", { now: () => T0, defer }, "carer")).resolves.toEqual({
       session: expected,
       role: "carer",
     });
+    await settle();
     expect(shared.emitted.map((call) => call.slice(0, 2))).toEqual([
       ["s1", "member.updated"],
       ["s2", "member.updated"],

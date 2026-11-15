@@ -244,10 +244,11 @@ describe("meal routes", () => {
     );
     const { id } = (await created.json()) as { id: string };
     const db = auth.db;
-    const find = db.session.findUnique.bind(db.session);
-    db.session.findUnique = vi.fn(async (args: { where: { id: string } }) => {
-      const row = await find({ ...args, include: { user: { include: { memberships: true } } } });
-      return row ? { ...row, user: { ...row.user, simpleMode: true } } : null;
+    // loadSession reads the user with user.findFirst; this session's user is changed there.
+    const find = db.user.findFirst.bind(db.user);
+    db.user.findFirst = vi.fn(async (args: Parameters<typeof find>[0]) => {
+      const user = await find(args);
+      return user ? { ...user, simpleMode: true } : null;
     }) as unknown as typeof find;
     configureMeals({ sessionDb: db, repo, photos: null, now: () => clock });
     const response = await POST(

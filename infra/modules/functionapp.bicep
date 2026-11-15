@@ -31,6 +31,8 @@ param appInsightsConnectionString string
 param sqlServerFqdn string
 @description('Name of the database the poller connects to.')
 param sqlDatabase string
+@description('The web app\'s health endpoint, which the web-warm timer asks every five minutes.')
+param webHealthUrl string
 
 resource identity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: 'id-${baseName}-${suffix}'
@@ -83,6 +85,7 @@ var appSettings = {
   WEB_PUBSUB_ENDPOINT: 'https://${webPubSubHostName}'
   WEB_PUBSUB_HUB: webPubSubHub
   KEY_VAULT_URL: keyVaultUri
+  WEB_HEALTH_URL: webHealthUrl
 }
 
 resource functionApp 'Microsoft.Web/sites@2024-04-01' = {

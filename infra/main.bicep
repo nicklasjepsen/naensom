@@ -103,6 +103,8 @@ module functionApp 'modules/functionapp.bicep' = {
     appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
     sqlServerFqdn: sqlServerFqdn
     sqlDatabase: sqlDatabaseName
+    // The web-warm timer's target: the custom domain when there is one, else the default host.
+    webHealthUrl: 'https://${empty(customDomain) ? staticWebApp.outputs.defaultHostname : customDomain}/api/health'
   }
 }
 

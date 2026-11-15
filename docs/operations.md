@@ -289,7 +289,13 @@ at the seed clock. The fake returns at most 24 hours per daily cycle, so a
 
 ## The app opens slowly or blank
 
-The server answers in milliseconds once a phone asks, so a slow or blank open is usually time spent on the phone before the first request. Two things help:
+A slow open has had three causes. The first two are on the server and were found in the load reports and App Insights in November 2026; the third is on the phone.
+
+- **The first open after an hour away.** Signing in a request touches `Session.lastSeenAt` and `User.lastSeen` once an hour and emits `member.updated` to each of the user's spaces. That touch is two writes and a transaction per space, each a round trip from West Europe to the database in Sweden Central, and it fell on exactly the request that opens the app (the locale index, `/da` or `/en`), which then took 1.5–7 s. Since v0.8.6 the touch runs after the response (`after()` in `web/src/lib/auth/session.ts`), once per session even when several requests find it due, and the session, its user and its memberships are read in one round trip instead of three.
+- **A cold server.** Static Web Apps recycles the web app's server after a while without requests, and pooled database connections go stale. Since v0.8.6 the poller's `web-warm` timer asks `/api/health` every five minutes (`WEB_HEALTH_URL`, set by Bicep), which keeps the server and a database connection in use. Its runs are `web-warm.done` lines in the poller's traces, with the time each took; a `web-warm.failed` line names the status or the error.
+- **The phone.** Until v0.7.6 the service worker answered every page load, as below.
+
+Two things help on the phone's side:
 
 - **No fetch handler.** The service worker (`web/public/sw.js`) is there for push notifications only. Until v0.7.6 it also answered every page load to show an offline page; the load reports showed that cost 2.5–4 s on an iPhone before the request even left the phone, and much longer when iOS had put the worker to sleep, so v0.7.7 removed it. Offline, the browser shows its own error page.
 - **The load report.** Every page load (and every restore from the back-forward cache) asks `GET /api/diag/load/<fields>` (fields as `key:value`, comma-separated, in the path, because App Insights drops the query of a static route) with the browser's navigation timings in whole milliseconds since the open began, from `web/src/components/shell/LoadTiming.tsx`. Nothing is stored: the request is the report, kept by App Insights under its path. It carries only numbers and fixed words (`v` version, `os` ios/android/other, `pwa`, `sw` controlled, `online`, `type`, then `worker`, `fetch`, `dns`, `connect`, `request`, `firstByte`, `response`, `interactive`, `loaded`, `redirects`, `at`; `slept` for a restore). Read them with:
@@ -299,7 +305,12 @@ az monitor log-analytics query --subscription <sub> -w <workspace customerId> --
   "AppRequests | where Name startswith 'GET /api/diag/load/' | project TimeGenerated, Name | order by TimeGenerated desc | take 20" -o table
 ```
 
-A large `worker` means the service worker was slow to start (there should be none since v0.7.7); a large `fetch` means the app's own start was slow; a large `dns` or `connect` means the network; a large gap between `request` and `firstByte` means the server.
+A large `worker` means the service worker was slow to start (there should be none since v0.7.7); a large `fetch` means the app's own start was slow, or, with `redirects:1`, that the redirect from `/` to `/da` or `/en` was (the installed app starts at `/`, and that hop is a server request too); a large `dns` or `connect` means the network; a large gap between `request` and `firstByte` means the server. To see what the server did during one open, list the web app's requests in the 30 seconds before the report:
+
+```
+az monitor log-analytics query --subscription <sub> -w <workspace customerId> --analytics-query \
+  "let t = toscalar(AppRequests | where Name has '<a field from the report, e.g. fetch:11841>' | project TimeGenerated | take 1); AppRequests | where TimeGenerated between ((t - 30s) .. t) and AppRoleName startswith 'staticwebapps' | project TimeGenerated, Name, DurationMs | order by TimeGenerated asc" -o table
+```
 
 ## Dependency alerts
 

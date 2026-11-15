@@ -17,10 +17,11 @@ function setup(simpleMode = false, failure?: HttpError, cap = 50) {
   for (const role of ["owner", "carer", "viewer"] as const) auth.addMember(role, "s1", role);
   auth.addMember("other", "s2", "carer");
   const db = auth.db;
-  const original = db.session.findUnique.bind(db.session);
-  db.session.findUnique = vi.fn(async (args: { where: { id: string } }) => {
-    const row = await original({ ...args, include: { user: { include: { memberships: true } } } });
-    return row ? { ...row, user: { ...row.user, simpleMode, locale: "en" } } : null;
+  // loadSession reads the user with user.findFirst; this session's user is changed there.
+  const original = db.user.findFirst.bind(db.user);
+  db.user.findFirst = vi.fn(async (args: Parameters<typeof original>[0]) => {
+    const user = await original(args);
+    return user ? { ...user, simpleMode, locale: "en" } : null;
   }) as unknown as typeof original;
   const fake = new FakeAiProvider([
     {

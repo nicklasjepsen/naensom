@@ -12,6 +12,7 @@ import "./functions/weekly-insight";
 import "./functions/enrich-foods";
 import "./functions/live-poll";
 import "./functions/live-register";
+import "./functions/web-warm";
 
 app.setup({ enableHttpStream: false });
 

@@ -1,7 +1,9 @@
 import { cookies } from "next/headers";
+import { after } from "next/server";
 import {
   emit as defaultEmit,
   HttpError,
+  log,
   prisma,
   SessionContext,
   type EmitFn,
@@ -15,19 +17,37 @@ export const SESSION_MAX_AGE_SECONDS = 90 * 24 * 60 * 60;
 const TOUCH_INTERVAL_MS = 60 * 60 * 1000;
 
 /** The Prisma delegates the session helpers use; tests pass a fake. */
-export type SessionDb = Pick<PrismaClient, "session" | "user">;
+export type SessionDb = Pick<PrismaClient, "session" | "user" | "membership">;
 
 export interface SessionDeps {
   db?: SessionDb;
   emit?: EmitFn;
   now?: () => Date;
+  /** Runs the hourly touch off the request's path; tests pass one they can await. */
+  defer?: (task: () => Promise<void>) => void;
 }
 
 /**
+ * After the response has gone, through Next's `after()`. Outside a request scope (a script, a
+ * test without its own `defer`) `after()` throws, and the task simply runs without being awaited.
+ */
+export function afterResponse(task: () => Promise<void>): void {
+  try {
+    after(task);
+  } catch {
+    void task();
+  }
+}
+
+/** Sessions whose touch is running in this process, so parallel requests do not touch twice. */
+const touching = new Set<string>();
+
+/**
  * Loads the session row and its user with memberships (plan §6). Returns null for an unknown or
- * expired session. `Session.lastSeenAt` and `User.lastSeen` are touched at most once per hour;
- * People shows `lastSeen` as "Sidst set", so that touch is a member write and emits
- * `member.updated` to every space of the user. The session row itself is device bookkeeping.
+ * expired session. `Session.lastSeenAt` and `User.lastSeen` are touched at most once per hour,
+ * after the response (`deps.defer`); People shows `lastSeen` as "Sidst set", so that touch is a
+ * member write and emits `member.updated` to every space of the user. The session row itself is
+ * device bookkeeping.
  */
 export async function loadSession(
   sessionId: string,
@@ -38,28 +58,66 @@ export async function loadSession(
   const now = deps.now ?? (() => new Date());
   const at = now();
 
-  const row = await db.session.findUnique({
-    where: { id: sessionId },
-    include: { user: { include: { memberships: true } } },
-  });
-  if (!row || row.expiresAt.getTime() <= at.getTime()) return null;
+  // Three single-table reads at once, so the check costs one round trip to the database and not
+  // three: an `include` of the user and the memberships is sent as three queries one after another
+  // on SQL Server, and every API call starts here. The user and the memberships are found through
+  // the session id, so all three describe the same session.
+  const bySession = { sessions: { some: { id: sessionId } } };
+  const [row, user, memberships] = await Promise.all([
+    db.session.findUnique({
+      where: { id: sessionId },
+      select: { id: true, userId: true, expiresAt: true, lastSeenAt: true },
+    }),
+    db.user.findFirst({
+      where: bySession,
+      select: {
+        id: true,
+        name: true,
+        simpleMode: true,
+        accent: true,
+        theme: true,
+        locale: true,
+      },
+    }),
+    db.membership.findMany({ where: { user: bySession }, select: { spaceId: true, role: true } }),
+  ]);
+  if (!row || user?.id !== row.userId) return null;
+  if (row.expiresAt.getTime() <= at.getTime()) return null;
 
-  if (at.getTime() - row.lastSeenAt.getTime() >= TOUCH_INTERVAL_MS) {
-    await db.session.update({ where: { id: row.id }, data: { lastSeenAt: at } });
-    await db.user.update({ where: { id: row.userId }, data: { lastSeen: at } });
-    for (const membership of row.user.memberships) {
-      await emit(membership.spaceId, "member.updated", { userId: row.userId });
-    }
+  if (at.getTime() - row.lastSeenAt.getTime() >= TOUCH_INTERVAL_MS && !touching.has(row.id)) {
+    // The touch is bookkeeping (two writes and an event per space, each a round trip to the
+    // database), and it falls on the first request after an hour away, which is the one that
+    // opens the app. It runs after the response so that request is not kept waiting for it.
+    touching.add(row.id);
+    const spaceIds = memberships.map((m) => m.spaceId);
+    (deps.defer ?? afterResponse)(async () => {
+      try {
+        await Promise.all([
+          db.session.update({ where: { id: row.id }, data: { lastSeenAt: at } }),
+          db.user.update({ where: { id: row.userId }, data: { lastSeen: at } }),
+        ]);
+        await Promise.all(
+          spaceIds.map((spaceId) => emit(spaceId, "member.updated", { userId: row.userId })),
+        );
+      } catch (error) {
+        log.warn("session.touch-failed", {
+          userId: row.userId,
+          error: error instanceof Error ? error.name : "unknown",
+        });
+      } finally {
+        touching.delete(row.id);
+      }
+    });
   }
 
   return SessionContext.parse({
-    userId: row.user.id,
-    name: row.user.name,
-    simpleMode: row.user.simpleMode,
-    accent: row.user.accent,
-    theme: row.user.theme,
-    locale: row.user.locale,
-    memberships: row.user.memberships.map((m) => ({ spaceId: m.spaceId, role: m.role })),
+    userId: user.id,
+    name: user.name,
+    simpleMode: user.simpleMode,
+    accent: user.accent,
+    theme: user.theme,
+    locale: user.locale,
+    memberships: memberships.map((m) => ({ spaceId: m.spaceId, role: m.role })),
   });
 }
 
