@@ -355,6 +355,47 @@ final class LiveActivitySyncTests: XCTestCase {
         XCTAssertEqual(autoStart(running: running), .reuse(keep: "new", end: ["mid", "old"]))
     }
 
+    func testAnEndedActivityStillOnTheLockScreenGoesWhenAnotherRuns() {
+        // The 8-hour restart started "new" and the old one's end never arrived: iOS ended it later
+        // by itself and leaves it there, grey, for hours.
+        let shown = [
+            Running(id: "old", startedAt: noon.addingTimeInterval(-8 * 3600), isLive: false),
+            Running(id: "new", startedAt: noon.addingTimeInterval(-900)),
+        ]
+        XCTAssertEqual(autoStart(running: shown), .reuse(keep: "new", end: ["old"]))
+        XCTAssertEqual(LiveActivitySync.tidy(shown)?.keep, "new")
+        XCTAssertEqual(LiveActivitySync.tidy(shown)?.end, ["old"])
+    }
+
+    func testAnEndedActivityAloneIsReplacedByANewStart() {
+        // Never kept, however recently seen: it takes no more updates.
+        let ended = [Running(id: "old", startedAt: noon, isLive: false)]
+        XCTAssertNil(LiveActivitySync.tidy(ended))
+        XCTAssertEqual(autoStart(running: ended), .start)
+        XCTAssertEqual(autoStart(running: ended, haveReading: false), .nothing)
+        let both = [Running(id: "ended", startedAt: noon, isLive: false), Running(id: "live", startedAt: noon.addingTimeInterval(-3600))]
+        XCTAssertEqual(LiveActivitySync.tidy(both)?.keep, "live")
+    }
+
+    func testOfTwoFirstSeenTogetherTheOneWithTheNewerReadingStays() {
+        // Both were there when the app woke: the one the relay still updates shows the newer reading.
+        let shown = [
+            Running(id: "b-stale", startedAt: noon, readingAt: noon.addingTimeInterval(-3600)),
+            Running(id: "a-live", startedAt: noon, readingAt: noon.addingTimeInterval(-60)),
+        ]
+        XCTAssertEqual(LiveActivitySync.tidy(shown)?.keep, "a-live")
+        XCTAssertEqual(LiveActivitySync.tidy(shown)?.end, ["b-stale"])
+        // Seen later wins over a newer reading: the newest activity is the one the relay aims at.
+        let later = shown + [Running(id: "c-new", startedAt: noon.addingTimeInterval(1), readingAt: noon.addingTimeInterval(-600))]
+        XCTAssertEqual(LiveActivitySync.tidy(later)?.keep, "c-new")
+        XCTAssertEqual(LiveActivitySync.tidy(later)?.end, ["a-live", "b-stale"])
+    }
+
+    func testOneActivityAloneIsLeftAlone() {
+        XCTAssertEqual(LiveActivitySync.tidy([Running(id: "a", startedAt: noon)])?.end, [])
+        XCTAssertNil(LiveActivitySync.tidy([]))
+    }
+
     func testLeavesActivitiesAloneWhenSwitchedOff() {
         XCTAssertEqual(autoStart(liveActivityOn: false, running: [Running(id: "a", startedAt: noon)]), .nothing)
     }

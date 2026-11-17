@@ -132,6 +132,31 @@ final class RelayClientTests: XCTestCase {
         XCTAssertTrue(body["deviceToken"] is NSNull)
     }
 
+    func testAWakeWithoutAWindowLeavesOutTheTokensItDoesNotHave() throws {
+        // Absent keeps what the relay holds; null would clear it (the reminders' device token, say).
+        var wake = registration(liveOn: false, alertsOn: false)
+        wake.keepsUnknownTokens = true
+        let client = RelayClient(transport: ScriptedTransport([]))
+        let credentials = RelayCredentials(subscriptionId: "sub-1", deviceSecret: "secret-1")
+        let body = try json(client.registerRequest(wake, credentials: credentials))
+        for key in ["pushToStartToken", "activityPushToken", "activityStartedAt", "deviceToken"] {
+            XCTAssertNil(body[key], "\(key) is left out")
+        }
+        XCTAssertEqual(body["subscriptionId"] as? String, "sub-1")
+
+        // What it does have is sent as always.
+        var known = registration()
+        known.keepsUnknownTokens = true
+        let sent = try json(client.registerRequest(known, credentials: credentials))
+        var plain = registration()
+        plain.keepsUnknownTokens = false
+        let usual = try json(client.registerRequest(plain, credentials: credentials))
+        for key in ["pushToStartToken", "activityPushToken", "activityStartedAt", "deviceToken"] {
+            XCTAssertNotNil(sent[key] as? String, key)
+            XCTAssertEqual(sent[key] as? String, usual[key] as? String, key)
+        }
+    }
+
     func testTheDemoRegistersWithoutAToken() throws {
         let demo = registration(source: .demo)
         XCTAssertEqual(demo.nightscoutUrl, "demo")

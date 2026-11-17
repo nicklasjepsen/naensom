@@ -7,6 +7,9 @@ import Foundation
 /// (`NotificationController`). The screens call these actions; the pieces never call each other.
 @MainActor
 final class AppModel: ObservableObject {
+    /// One for the process: the window's and the one the app delegate wakes without a window.
+    static let shared = AppModel()
+
     let follow = FollowModel()
     let live = LiveActivityController()
     let relay = RelaySync()
@@ -20,13 +23,18 @@ final class AppModel: ObservableObject {
     /// say "stopped" while it is starting.
     @Published private(set) var startingActivity = false
 
+    private var woken = false
     private var launched = false
     private var syncTask: Task<Void, Never>?
+    private var autoStartTask: Task<Void, Never>?
 
-    /// Once, when the first window appears.
-    func launch() {
-        guard !launched else { return }
-        launched = true
+    /// Once, as soon as the process starts, window or not (the app delegate calls it): iOS also
+    /// launches the app in the background, when the relay starts a new activity by push-to-start.
+    /// The new activity's push token then reaches the relay, and the activity it replaces is taken
+    /// off the lock screen, without anyone opening the app. Starts nothing and reads no site.
+    func wake() {
+        guard !woken else { return }
+        woken = true
         live.onTokensChanged = { [weak self] in self?.scheduleSync() }
         notifications.onDeviceToken = { [weak self] in self?.scheduleSync() }
         follow.onNewReading = { [weak self] current, previous in
@@ -38,13 +46,21 @@ final class AppModel: ObservableObject {
             self?.scheduleSync()
         }
         live.observe()
+        // The device token is asked for again on every start of the process; it can change.
+        if follow.settings.alertsOn {
+            Task { await notifications.registerIfAllowed() }
+        }
+    }
+
+    /// Once, when the first window appears.
+    func launch() {
+        guard !launched else { return }
+        launched = true
+        wake()
         // A removal the relay has not confirmed yet is tried again, followed site or not.
         PendingUnregisterSync.shared.retryIfDue()
         // An address and token saved before the widgets existed move to the shared access group.
         KeychainStore.shareWithExtension()
-        if follow.settings.alertsOn {
-            Task { await notifications.registerIfAllowed() }
-        }
         syncNow(force: true)
         if follow.source != nil {
             Task {
@@ -67,14 +83,27 @@ final class AppModel: ObservableObject {
     }
 
     /// With the Live Activity on, at launch and on every return to the foreground: reuse a running
-    /// activity (the newest; others end) or start one. A new activity's push token reaches the
-    /// relay through `onTokensChanged`.
+    /// activity (the newest; every other one the phone shows ends) or start one. A new activity's
+    /// push token reaches the relay through `onTokensChanged`. A cold launch asks twice at once
+    /// (the launch and the first foreground); the second waits for the first, so one decision is
+    /// taken and at most one activity started.
     func autoStartIfWanted() async {
+        if let underway = autoStartTask {
+            await underway.value
+            return
+        }
+        let task = Task { await decideAutoStart() }
+        autoStartTask = task
+        await task.value
+        autoStartTask = nil
+    }
+
+    private func decideAutoStart() async {
         guard follow.source != nil else { return }
         let decision = LiveActivitySync.autoStart(
             liveActivityOn: follow.settings.liveActivityOn,
             systemAllows: live.systemAllows,
-            running: live.running(),
+            running: live.shown(),
             haveReading: follow.latest != nil
         )
         switch decision {
@@ -245,7 +274,7 @@ final class AppModel: ObservableObject {
             activityStartedAt: live.activityStartedAt,
             device: notifications.deviceToken
         )
-        let registration = RelayRegistration.make(
+        var registration = RelayRegistration.make(
             source: source,
             settings: follow.settings,
             thresholds: follow.thresholds,
@@ -253,6 +282,10 @@ final class AppModel: ObservableObject {
             language: AppLanguage.current,
             environment: RelaySync.environment
         )
+        // Woken without a window, the tokens come back one at a time (and the device token not at
+        // all when notifications were turned off in iOS): what is not here yet is left out, so the
+        // relay keeps it, and a wake never takes a token from the relay.
+        registration.keepsUnknownTokens = !launched
         relay.sync(registration, force: force)
     }
 }

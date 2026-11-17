@@ -65,9 +65,14 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
-        // Also runs when iOS wakes the app in the background (a Live Activity token, say), where
-        // no window appears: a removal the relay has not confirmed is tried again then too.
-        Task { @MainActor in PendingUnregisterSync.shared.retryIfDue() }
+        // Also runs when iOS launches the app in the background (the relay started a Live Activity
+        // by push, say), where no window appears: the new activity's token is registered and the
+        // one it replaces ended (`AppModel.wake`), and a removal the relay has not confirmed is
+        // tried again then too.
+        Task { @MainActor in
+            AppModel.shared.wake()
+            PendingUnregisterSync.shared.retryIfDue()
+        }
         return true
     }
 

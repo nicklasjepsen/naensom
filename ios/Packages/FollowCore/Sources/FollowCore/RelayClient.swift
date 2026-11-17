@@ -60,6 +60,10 @@ public struct RelayRegistration: Equatable, Sendable {
     public var thresholds: GlucoseThresholds
     public var alertsOn: Bool
     public var language: Language
+    /// A token this registration does not have is left out, so the relay keeps the one it holds,
+    /// instead of sent as `null`, which clears it. For a wake without a window, where the tokens
+    /// come back one at a time: it must never take the reminders' device token from the relay.
+    public var keepsUnknownTokens = false
 
     public init(
         nightscoutUrl: String, nightscoutToken: String?, pushToStartToken: String?, activityPushToken: String?,
@@ -236,7 +240,8 @@ public struct RelayClient: Sendable {
     }
 
     /// Spells out every key the contract lists: absent `subscriptionId` on create and absent
-    /// `nightscoutToken` on update; the tokens and `activityStartedAt` as `null` when there are none.
+    /// `nightscoutToken` on update; the tokens and `activityStartedAt` as `null` when there are
+    /// none, or left out when the registration keeps the relay's (`keepsUnknownTokens`).
     private struct RegisterBody: Encodable {
         let registration: RelayRegistration
         let subscriptionId: String?
@@ -256,10 +261,19 @@ public struct RelayClient: Sendable {
                 try c.encode(token, forKey: .nightscoutToken)
             }
             try c.encode(r.nightscoutUrl, forKey: .nightscoutUrl)
-            try c.encode(r.pushToStartToken, forKey: .pushToStartToken)
-            try c.encode(r.activityPushToken, forKey: .activityPushToken)
-            try c.encode(r.activityStartedAt.map(RelayClient.iso8601), forKey: .activityStartedAt)
-            try c.encode(r.deviceToken, forKey: .deviceToken)
+            let startedAt = r.activityStartedAt.map(RelayClient.iso8601)
+            if r.keepsUnknownTokens {
+                // The activity's token and its start go together or not at all.
+                try c.encodeIfPresent(r.pushToStartToken, forKey: .pushToStartToken)
+                try c.encodeIfPresent(r.activityPushToken, forKey: .activityPushToken)
+                if r.activityPushToken != nil { try c.encodeIfPresent(startedAt, forKey: .activityStartedAt) }
+                try c.encodeIfPresent(r.deviceToken, forKey: .deviceToken)
+            } else {
+                try c.encode(r.pushToStartToken, forKey: .pushToStartToken)
+                try c.encode(r.activityPushToken, forKey: .activityPushToken)
+                try c.encode(startedAt, forKey: .activityStartedAt)
+                try c.encode(r.deviceToken, forKey: .deviceToken)
+            }
             try c.encode(r.apnsEnvironment, forKey: .apnsEnvironment)
             try c.encode(r.unit, forKey: .unit)
             try c.encode(r.thresholds, forKey: .thresholds)

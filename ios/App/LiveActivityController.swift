@@ -32,13 +32,25 @@ final class LiveActivityController: ObservableObject {
     private var tokens: [String: String] = [:]
     private static let startedAtKey = "live.startedAt"
 
-    /// Called once at launch. Also picks up activities the relay started by push-to-start while the
-    /// app was closed, and their new push tokens.
+    /// Called once, as soon as the process starts (`AppModel.wake`), window or not: iOS also
+    /// launches the app in the background when the relay starts an activity by push-to-start.
+    /// Picks up the activities already there and every one that starts later, with their push
+    /// tokens, and each time leaves only the newest on the lock screen (`tidy`).
     func observe() {
         guard !observing else { return }
         observing = true
-        for activity in Activity<GlucoseActivityAttributes>.activities { watch(activity) }
+        // One moment for all of them, noted before any is watched (watching one reads the others'):
+        // activities first seen together are told apart by what they show.
+        let now = Date()
+        let present = Activity<GlucoseActivityAttributes>.activities
+        for activity in present { _ = Self.startedAt(activity.id, now: now) }
+        for activity in present { watch(activity, seenAt: now) }
         updateRunning()
+        // The push-to-start token iOS already holds; the sequence below brings a changed one.
+        if let data = Activity<GlucoseActivityAttributes>.pushToStartToken {
+            pushToStartToken = data.hexString
+        }
+        Task { await tidy() }
 
         Task {
             for await data in Activity<GlucoseActivityAttributes>.pushToStartTokenUpdates {
@@ -52,6 +64,9 @@ final class LiveActivityController: ObservableObject {
         Task {
             for await activity in Activity<GlucoseActivityAttributes>.activityUpdates {
                 watch(activity)
+                // A new one, started here or by the relay's push: the one it replaces goes now,
+                // also when the relay's `end` push never reached it and the app is not open.
+                await tidy()
             }
         }
     }
@@ -77,7 +92,23 @@ final class LiveActivityController: ObservableObject {
             await self.endNow()
             guard stillWanted() else { return }
             self.request(current: current, previous: previous, unit: unit)
+            // Anything that turned up meanwhile (a push-to-start on its way) goes too.
+            await self.endExtrasNow()
         }
+    }
+
+    /// Leaves one activity on the lock screen: the newest running one stays, every other goes,
+    /// running or ended (`LiveActivitySync.tidy`). Two can be there when the relay's 8-hour restart
+    /// started a new one and its `end` push never reached the old one; only the newest gets the
+    /// relay's updates, so the other would sit there stale.
+    func tidy() async {
+        await serially { [self] in await self.endExtrasNow() }
+    }
+
+    private func endExtrasNow() async {
+        guard let plan = LiveActivitySync.tidy(shown()), !plan.end.isEmpty else { return }
+        logger.notice("ending \(plan.end.count, privacy: .public) extra activities")
+        await endNow(only: Set(plan.end))
     }
 
     private func request(current: Reading, previous: Reading?, unit: GlucoseUnit) {
@@ -144,10 +175,17 @@ final class LiveActivityController: ObservableObject {
     /// Whether iOS lets Nænsom show Live Activities (the user can turn them off in Settings).
     var systemAllows: Bool { ActivityAuthorizationInfo().areActivitiesEnabled }
 
-    /// The activities still showing, with when the app started or first saw each.
-    func running() -> [LiveActivitySync.RunningActivity] {
-        Activity<GlucoseActivityAttributes>.activities.filter(Self.isLive).map {
-            LiveActivitySync.RunningActivity(id: $0.id, startedAt: Self.startedAt($0.id))
+    /// Every activity the phone still shows, running or ended, with when the app started or first
+    /// saw each and the reading it shows.
+    func shown() -> [LiveActivitySync.RunningActivity] {
+        let now = Date()
+        let all = Activity<GlucoseActivityAttributes>.activities
+        Self.forgetStartedAt(except: Set(all.map(\.id)))
+        return all.filter { $0.activityState != .dismissed }.map {
+            LiveActivitySync.RunningActivity(
+                id: $0.id, startedAt: Self.startedAt($0.id, now: now),
+                readingAt: $0.content.state.readingAt, isLive: Self.isLive($0)
+            )
         }
     }
 
@@ -160,8 +198,8 @@ final class LiveActivityController: ObservableObject {
 
     /// The token the relay gets: the newest running activity's that has one.
     private func chooseToken() {
-        let newest = running()
-            .filter { tokens[$0.id] != nil }
+        let newest = shown()
+            .filter { $0.isLive && tokens[$0.id] != nil }
             .max { ($0.startedAt, $0.id) < ($1.startedAt, $1.id) }
         let token = newest.flatMap { tokens[$0.id] }
         let startedAt = newest?.startedAt
@@ -171,10 +209,10 @@ final class LiveActivityController: ObservableObject {
         onTokensChanged?()
     }
 
-    private func watch(_ activity: Activity<GlucoseActivityAttributes>) {
+    private func watch(_ activity: Activity<GlucoseActivityAttributes>, seenAt: Date = Date()) {
         guard !observed.contains(activity.id) else { return }
         observed.insert(activity.id)
-        _ = Self.startedAt(activity.id)
+        _ = Self.startedAt(activity.id, now: seenAt)
         updateRunning()
         if let data = activity.pushToken {
             tokens[activity.id] = data.hexString
@@ -211,10 +249,9 @@ final class LiveActivityController: ObservableObject {
     }
 
     /// ActivityKit does not say when an activity began, so the app notes when it first saw each one.
-    private static func startedAt(_ id: String) -> Date {
+    private static func startedAt(_ id: String, now: Date = Date()) -> Date {
         var all = UserDefaults.standard.dictionary(forKey: startedAtKey) as? [String: Double] ?? [:]
         if let seen = all[id] { return Date(timeIntervalSince1970: seen) }
-        let now = Date()
         all[id] = now.timeIntervalSince1970
         UserDefaults.standard.set(all, forKey: startedAtKey)
         return now
@@ -224,6 +261,13 @@ final class LiveActivityController: ObservableObject {
         var all = UserDefaults.standard.dictionary(forKey: startedAtKey) as? [String: Double] ?? [:]
         all[id] = nil
         UserDefaults.standard.set(all, forKey: startedAtKey)
+    }
+
+    /// Drops the notes for activities iOS no longer lists, so the list never grows.
+    private static func forgetStartedAt(except ids: Set<String>) {
+        let all = UserDefaults.standard.dictionary(forKey: startedAtKey) as? [String: Double] ?? [:]
+        let kept = all.filter { ids.contains($0.key) }
+        if kept.count != all.count { UserDefaults.standard.set(kept, forKey: startedAtKey) }
     }
 
     /// Push tokens identify the device, so they never go to the unified log: the log says only that

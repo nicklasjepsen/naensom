@@ -4,7 +4,7 @@ import SwiftUI
 @main
 struct NaensomApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @StateObject private var app = AppModel()
+    @StateObject private var app = AppModel.shared
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
