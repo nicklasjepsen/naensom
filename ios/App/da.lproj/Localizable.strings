@@ -131,3 +131,16 @@
 "changes.days" = "%ld dage";
 "changes.fromPump" = "Tiderne kommer fra pumpen.";
 "changes.hint" = "Viser hvornår der sidst blev skiftet";
+
+/* Change reminders */
+"changes.snooze" = "Påmind mig igen";
+"changes.snoozed" = "Påminder igen %@";
+"reminder.change.cartridge" = "Tid til at skifte reservoir";
+"reminder.change.cannula" = "Tid til at skifte indstik";
+"reminder.change.sensor" = "Tid til at skifte sensor";
+"reminder.snooze.tenMinutes" = "Påmind om 10 minutter";
+"reminder.snooze.thirtyMinutes" = "Påmind om 30 minutter";
+"reminder.snooze.twoHours" = "Påmind om 2 timer";
+"reminder.snooze.oneDay" = "Påmind om 1 dag";
+"settings.changeReminders" = "Påmindelser om skift";
+"settings.changeReminders.footer" = "En besked, når det er tid til at skifte reservoir, indstik eller sensor. Hold fingeren på beskeden for at blive påmindet igen om 10 minutter, 30 minutter, 2 timer eller 1 dag. Den følger lydløs og Fokus som alle andre beskeder.";

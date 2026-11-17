@@ -3,8 +3,9 @@ import FollowCore
 import Foundation
 
 /// Ties the pieces together: what the app follows (`FollowModel`), the Live Activity
-/// (`LiveActivityController`), the relay registration (`RelaySync`) and the reminders
-/// (`NotificationController`). The screens call these actions; the pieces never call each other.
+/// (`LiveActivityController`), the relay registration (`RelaySync`), the reminders
+/// (`NotificationController`) and the change reminders (`ChangeReminderController`). The screens
+/// call these actions; the pieces never call each other.
 @MainActor
 final class AppModel: ObservableObject {
     /// One for the process: the window's and the one the app delegate wakes without a window.
@@ -14,6 +15,7 @@ final class AppModel: ObservableObject {
     let live = LiveActivityController()
     let relay = RelaySync()
     let notifications = NotificationController.shared
+    let changeReminders = ChangeReminderController.shared
 
     /// A follow link that arrived while the phone is not set up; onboarding picks it up.
     @Published var pendingLink: FollowLink?
@@ -31,11 +33,18 @@ final class AppModel: ObservableObject {
     /// Once, as soon as the process starts, window or not (the app delegate calls it): iOS also
     /// launches the app in the background, when the relay starts a new activity by push-to-start.
     /// The new activity's push token then reaches the relay, and the activity it replaces is taken
-    /// off the lock screen, without anyone opening the app. Starts nothing and reads no site.
+    /// off the lock screen, without anyone opening the app. Starts nothing and reads no glucose;
+    /// with the change reminders on it reads the pump's changes, so a reminder for a part that
+    /// was changed meanwhile is taken back.
     func wake() {
         guard !woken else { return }
         woken = true
-        live.onTokensChanged = { [weak self] in self?.scheduleSync() }
+        live.onTokensChanged = { [weak self] in
+            self?.scheduleSync()
+            // A new activity is also the moment iOS runs the app with nobody looking.
+            self?.refreshChangesForReminders()
+        }
+        follow.onPumpChanges = { [weak self] in self?.syncChangeReminders() }
         notifications.onDeviceToken = { [weak self] in self?.scheduleSync() }
         follow.onNewReading = { [weak self] current, previous in
             self?.newReading(current, previous)
@@ -47,9 +56,10 @@ final class AppModel: ObservableObject {
         }
         live.observe()
         // The device token is asked for again on every start of the process; it can change.
-        if follow.settings.alertsOn {
-            Task { await notifications.registerIfAllowed() }
+        if follow.settings.alertsOn || follow.settings.changeRemindersOn {
+            Task { await notifications.registerIfAllowed(remote: follow.settings.alertsOn) }
         }
+        refreshChangesForReminders()
     }
 
     /// Once, when the first window appears.
@@ -194,6 +204,7 @@ final class AppModel: ObservableObject {
 
     func setChangeDays(_ days: Int, for part: PumpPart) {
         follow.update { $0.setDays(days, for: part) }
+        syncChangeReminders()
     }
 
     func setCurveWindow(_ window: CurveWindow) {
@@ -228,6 +239,52 @@ final class AppModel: ObservableObject {
         }
     }
 
+    // MARK: - Change reminders
+
+    /// Change reminders on asks for notification permission first; without it the switch stays off.
+    func setChangeReminders(_ on: Bool) {
+        guard on else {
+            follow.update { $0.changeRemindersOn = false }
+            syncChangeReminders()
+            return
+        }
+        Task {
+            let allowed = await notifications.requestPermission(remote: false)
+            follow.update { $0.changeRemindersOn = allowed }
+            syncChangeReminders()
+        }
+    }
+
+    /// "Remind me again" in the app, for a part that is due.
+    func snoozeChange(_ part: PumpPart, for choice: ChangeSnoozeChoice) {
+        guard let lastAt = follow.pumpChanges?[part] else { return }
+        changeReminders.snooze(part, lastAt: lastAt, for: choice)
+    }
+
+    /// A tapped action on a notification, with the app in the background: the snooze is kept and
+    /// its reminder scheduled at once, then the pump's changes are read, so a part that was
+    /// changed meanwhile is not reminded about again. The snooze is held against the changes the
+    /// app has either way: a read that was skipped (one was just made) may already have brought a
+    /// newer change than the one the notification was about, and that one's due time then stands.
+    func changeReminderAction(_ action: String, part: String?, lastAt: Double?) async {
+        guard follow.settings.changeRemindersOn, follow.source != nil else { return }
+        guard changeReminders.handle(action: action, part: part, lastAt: lastAt) else { return }
+        await follow.refreshPumpChanges()
+        syncChangeReminders()
+    }
+
+    /// The demo's changes are made up from the time of each read, so there is nothing to remind
+    /// about: its reminders are none.
+    private func syncChangeReminders() {
+        let changes = follow.source?.isDemo == true ? PumpChanges() : follow.pumpChanges
+        changeReminders.sync(changes: changes, settings: follow.settings)
+    }
+
+    private func refreshChangesForReminders() {
+        guard follow.settings.changeRemindersOn, follow.source != nil else { return }
+        Task { await follow.refreshPumpChanges() }
+    }
+
     // MARK: - Remove this phone
 
     /// Ends the activities, deletes the relay's copy and clears the phone, back to onboarding.
@@ -249,6 +306,7 @@ final class AppModel: ObservableObject {
         }
         await live.endAll()
         notifications.reset()
+        changeReminders.clear()
         follow.forget()
         return true
     }

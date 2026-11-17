@@ -4,9 +4,10 @@ import os
 import UIKit
 import UserNotifications
 
-/// The low/high reminders (plan §1): the relay sends them as ordinary alert pushes to the app's
-/// APNs device token. They follow silent mode and Focus like any notification and do not replace
-/// the CGM app's alarms.
+/// Permission for notifications, and the APNs device token. The low/high reminders (plan §1)
+/// come from the relay as ordinary alert pushes to that token; the change reminders
+/// (`ChangeReminderController`) are scheduled on the phone and need the permission only. Both
+/// follow silent mode and Focus like any notification and do not replace the CGM app's alarms.
 @MainActor
 final class NotificationController: ObservableObject {
     static let shared = NotificationController()
@@ -20,23 +21,24 @@ final class NotificationController: ObservableObject {
 
     private let logger = Logger(subsystem: "ninja.jepsen.naensom", category: "notifications")
 
-    /// Asks for permission and, when given, registers for remote notifications. Answers whether
-    /// notifications are allowed.
-    func requestPermission() async -> Bool {
+    /// Asks for permission and, when given and `remote` (the low/high reminders), registers for
+    /// remote notifications. Answers whether notifications are allowed.
+    func requestPermission(remote: Bool = true) async -> Bool {
         let center = UNUserNotificationCenter.current()
         let granted = (try? await center.requestAuthorization(options: [.alert, .sound, .badge])) ?? false
         denied = !granted
-        if granted { UIApplication.shared.registerForRemoteNotifications() }
+        if granted && remote { UIApplication.shared.registerForRemoteNotifications() }
         return granted
     }
 
-    /// At launch, when reminders are on: registers again (the token can change) without asking.
-    func registerIfAllowed() async {
+    /// At launch, when a kind of reminder is on: sees whether notifications are still allowed and,
+    /// for the low/high reminders (`remote`), registers again (the token can change), without asking.
+    func registerIfAllowed(remote: Bool = true) async {
         let settings = await UNUserNotificationCenter.current().notificationSettings()
         switch settings.authorizationStatus {
         case .authorized, .provisional, .ephemeral:
             denied = false
-            UIApplication.shared.registerForRemoteNotifications()
+            if remote { UIApplication.shared.registerForRemoteNotifications() }
         case .denied:
             denied = true
         default:
@@ -58,13 +60,15 @@ final class NotificationController: ObservableObject {
     }
 }
 
-/// Receives the APNs device token, and shows a reminder that arrives while the app is open.
+/// Receives the APNs device token, shows a reminder that arrives while the app is open, and takes
+/// a change reminder's snooze action.
 final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        ChangeReminderController.registerCategory()
         // Also runs when iOS launches the app in the background (the relay started a Live Activity
         // by push, say), where no window appears: the new activity's token is registered and the
         // one it replaces ended (`AppModel.wake`), and a removal the relay has not confirmed is
@@ -90,5 +94,23 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
         [.banner, .list, .sound]
+    }
+
+    /// A snooze action on a change reminder. iOS runs the app in the background for it, so the
+    /// reminder is put off without the app opening. A tap on the notification itself opens the app
+    /// and needs nothing here.
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        let action = response.actionIdentifier
+        let info = response.notification.request.content.userInfo
+        let part = info["part"] as? String
+        let lastAt = info["lastAt"] as? Double
+        Task { @MainActor in
+            await AppModel.shared.changeReminderAction(action, part: part, lastAt: lastAt)
+            completionHandler()
+        }
     }
 }

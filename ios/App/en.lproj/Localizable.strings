@@ -131,3 +131,16 @@
 "changes.days" = "%ld days";
 "changes.fromPump" = "The times come from the pump.";
 "changes.hint" = "Shows when it was last changed";
+
+/* Change reminders */
+"changes.snooze" = "Remind me again";
+"changes.snoozed" = "Reminds again %@";
+"reminder.change.cartridge" = "Time to change the reservoir";
+"reminder.change.cannula" = "Time to change the site";
+"reminder.change.sensor" = "Time to change the sensor";
+"reminder.snooze.tenMinutes" = "Remind in 10 minutes";
+"reminder.snooze.thirtyMinutes" = "Remind in 30 minutes";
+"reminder.snooze.twoHours" = "Remind in 2 hours";
+"reminder.snooze.oneDay" = "Remind in 1 day";
+"settings.changeReminders" = "Change reminders";
+"settings.changeReminders.footer" = "A notification when it is time to change the reservoir, the site or the sensor. Touch and hold it to be reminded again in 10 minutes, 30 minutes, 2 hours or 1 day. It follows silent mode and Focus like any notification.";

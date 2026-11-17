@@ -2,8 +2,8 @@ import FollowCore
 import SwiftUI
 import UIKit
 
-/// Settings (plan §3): unit, colour thresholds, Live Activity, reminders, about, the disclaimer,
-/// and "Remove this phone".
+/// Settings (plan §3): unit, colour thresholds, Live Activity, reminders, change reminders, about,
+/// the disclaimer, and "Remove this phone".
 struct SettingsView: View {
     @EnvironmentObject private var app: AppModel
     @EnvironmentObject private var follow: FollowModel
@@ -91,6 +91,24 @@ struct SettingsView: View {
                     }
                 } footer: {
                     Text(L("settings.alerts.footer"))
+                }
+
+                // The demo's changes are made up, and a site without a pump has none to remind about.
+                if follow.settings.changeRemindersOn
+                    || (follow.source?.isDemo == false && follow.pumpChanges?.isEmpty == false) {
+                    Section {
+                        Toggle(L("settings.changeReminders"), isOn: Binding(get: { follow.settings.changeRemindersOn }, set: { app.setChangeReminders($0) }))
+                        if notifications.denied {
+                            Button(L("settings.alerts.denied")) {
+                                if let url = URL(string: UIApplication.openSettingsURLString) {
+                                    UIApplication.shared.open(url)
+                                }
+                            }
+                            .font(.footnote)
+                        }
+                    } footer: {
+                        Text(L("settings.changeReminders.footer"))
+                    }
                 }
 
                 if let error = relay.error {

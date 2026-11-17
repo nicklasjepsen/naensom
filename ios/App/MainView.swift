@@ -148,10 +148,12 @@ private struct LiveActivityBanner: View {
 /// "Skift": when the reservoir, the site and the sensor are next due, in plain words ("Skiftes om 1 dag").
 /// Tapping a part shows when the pump recorded the last change, when the next is due, and how many
 /// days it lasts. Shown only once the site has sent a change; past due reads in the plain text
-/// colour with a clock symbol, a reminder and not an alarm.
+/// colour with a clock symbol, a reminder and not an alarm. With the change reminders on, a part
+/// that is due can be put off from here too ("Påmind mig igen"), like on its notification.
 private struct PumpChangesSection: View {
     @EnvironmentObject private var app: AppModel
     @EnvironmentObject private var follow: FollowModel
+    @ObservedObject private var reminders = ChangeReminderController.shared
     @State private var open: PumpPart?
 
     var body: some View {
@@ -226,6 +228,17 @@ private struct PumpChangesSection: View {
                         .pickerStyle(.menu)
                         .labelsHidden()
                     }
+                    if follow.settings.changeRemindersOn, follow.source?.isDemo == false, countdown.isPastDue {
+                        if let snooze = reminders.snoozes[part], snooze.holds(for: lastAt, now: now) {
+                            Text(L("changes.snoozed", Self.time(snooze.until)))
+                        }
+                        Menu(L("changes.snooze")) {
+                            ForEach(ChangeSnoozeChoice.allCases, id: \.self) { choice in
+                                Button(ChangeReminderController.label(choice)) { app.snoozeChange(part, for: choice) }
+                            }
+                        }
+                        .foregroundStyle(.tint)
+                    }
                 }
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
@@ -242,10 +255,7 @@ private struct PumpChangesSection: View {
         }
     }
 
-    /// "lør. 14. nov. 09.12" / "Sat 14 Nov 09:12" in the phone's own time zone.
-    private static func time(_ date: Date) -> String {
-        date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated).hour().minute().locale(AppLanguage.locale))
-    }
+    private static func time(_ date: Date) -> String { ChangeReminderController.time(date) }
 }
 
 /// The 3/6/12/24-hour curve with the window picker.

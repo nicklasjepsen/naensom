@@ -23,6 +23,8 @@ final class FollowModel: ObservableObject {
     var onNewReading: ((Reading, Reading?) -> Void)?
     /// Called when the site's own thresholds arrive and change the ones in force.
     var onThresholdsChanged: (() -> Void)?
+    /// Called when the pump's changes have been read, changed or not.
+    var onPumpChanges: (() -> Void)?
 
     let feed = ReadingFeed(client: NightscoutClient(transport: URLSessionTransport()))
     /// Bumped whenever the source changes, so an answer for the previous one never lands.
@@ -87,11 +89,7 @@ final class FollowModel: ObservableObject {
                 siteThresholdsRead = true
                 Task { await readSiteThresholds(generation: asked) }
             }
-            // The pump uploads changes about hourly; a quarter of an hour between reads is plenty.
-            if pumpChangesReadAt.map({ now.timeIntervalSince($0) >= 15 * 60 }) ?? true {
-                pumpChangesReadAt = now
-                Task { await readPumpChanges(source, generation: asked, now: now) }
-            }
+            Task { await refreshPumpChanges(now: now) }
         } catch {
             guard asked == generation else { return }
             self.error = error as? NightscoutError ?? .unreachable
@@ -121,12 +119,19 @@ final class FollowModel: ObservableObject {
         if thresholds != before { onThresholdsChanged?() }
     }
 
-    /// The reservoir and site countdown is a help beside the value: a failure leaves what was shown
-    /// and never shows an error.
-    private func readPumpChanges(_ source: FollowSource, generation asked: Int, now: Date) async {
+    /// The pump's changes, read at most every quarter of an hour (the pump uploads them about
+    /// hourly), failed or not. The countdown is a help beside the value: a failure leaves what was
+    /// shown and never shows an error. Also called without a window, to keep the change reminders
+    /// in line with the pump while the app is closed.
+    func refreshPumpChanges(now: Date = Date()) async {
+        guard let source else { return }
+        guard pumpChangesReadAt.map({ now.timeIntervalSince($0) >= 15 * 60 }) ?? true else { return }
+        let asked = generation
+        pumpChangesReadAt = now
         let found = try? await feed.pumpChanges(source, now: now)
-        guard asked == generation else { return }
-        if let found { pumpChanges = found }
+        guard asked == generation, let found else { return }
+        pumpChanges = found
+        onPumpChanges?()
     }
 
     // MARK: - Settings

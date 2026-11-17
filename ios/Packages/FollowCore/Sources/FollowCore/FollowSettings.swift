@@ -15,13 +15,15 @@ public struct FollowSettings: Codable, Equatable, Sendable {
     public var cartridgeDays: Int
     public var cannulaDays: Int
     public var sensorDays: Int
+    /// A notification when a part is due. Off until the user turns it on and allows notifications.
+    public var changeRemindersOn: Bool
 
     public static let defaults = FollowSettings(unit: .mmolL, liveActivityOn: true, alertsOn: false, curveWindow: .sixHours)
 
     public init(
         unit: GlucoseUnit, liveActivityOn: Bool, alertsOn: Bool, curveWindow: CurveWindow,
         cartridgeDays: Int = PumpCountdown.defaultDays, cannulaDays: Int = PumpCountdown.defaultDays,
-        sensorDays: Int = PumpCountdown.defaultSensorDays
+        sensorDays: Int = PumpCountdown.defaultSensorDays, changeRemindersOn: Bool = false
     ) {
         self.unit = unit
         self.liveActivityOn = liveActivityOn
@@ -30,6 +32,7 @@ public struct FollowSettings: Codable, Equatable, Sendable {
         self.cartridgeDays = Self.clampDays(cartridgeDays)
         self.cannulaDays = Self.clampDays(cannulaDays)
         self.sensorDays = Self.clampDays(sensorDays)
+        self.changeRemindersOn = changeRemindersOn
     }
 
     /// The interval for one part.
@@ -55,7 +58,7 @@ public struct FollowSettings: Codable, Equatable, Sendable {
 
     /// A copy saved by an earlier build may still hold `autoStartLiveActivity`; it is ignored.
     private enum CodingKeys: String, CodingKey {
-        case unit, liveActivityOn, alertsOn, curveWindow, cartridgeDays, cannulaDays, sensorDays
+        case unit, liveActivityOn, alertsOn, curveWindow, cartridgeDays, cannulaDays, sensorDays, changeRemindersOn
     }
 
     public init(from decoder: Decoder) throws {
@@ -68,6 +71,7 @@ public struct FollowSettings: Codable, Equatable, Sendable {
         cartridgeDays = Self.clampDays((try? container.decodeIfPresent(Int.self, forKey: .cartridgeDays)) ?? fallback.cartridgeDays)
         cannulaDays = Self.clampDays((try? container.decodeIfPresent(Int.self, forKey: .cannulaDays)) ?? fallback.cannulaDays)
         sensorDays = Self.clampDays((try? container.decodeIfPresent(Int.self, forKey: .sensorDays)) ?? fallback.sensorDays)
+        changeRemindersOn = (try? container.decodeIfPresent(Bool.self, forKey: .changeRemindersOn)) ?? fallback.changeRemindersOn
     }
 
     /// The stored copy, or the defaults when there is none or it cannot be read.
