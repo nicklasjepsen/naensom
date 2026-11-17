@@ -100,6 +100,29 @@ public struct ReadingFeed: Sendable {
         }
     }
 
+    /// Every reading from `since` on, newest first.
+    public func readings(_ source: FollowSource, since: Date, now: Date = Date()) async throws -> [Reading] {
+        switch source {
+        case .demo:
+            let steps = Int(max(0, now.timeIntervalSince(since)) / DemoCurve.interval) + 1
+            return DemoCurve.latest(now: now, count: steps).filter { $0.at >= since }
+        case .nightscout(let site, let token):
+            return try await client.readings(
+                site: site.absoluteString, token: token, since: since, limit: ReadingHistory.fetchLimit
+            )
+        }
+    }
+
+    /// What the app's history is missing, newest first: everything since `newest`, or the last
+    /// twenty-four hours when there is no history (`ReadingHistory.fetchStart`). A site with nothing
+    /// that recent still gives its newest reading, so the app can show it grey with its age.
+    public func history(_ source: FollowSource, newest: Reading?, now: Date = Date()) async throws -> [Reading] {
+        let since = ReadingHistory.fetchStart(newest: newest, now: now)
+        let fresh = try await readings(source, since: since, now: now)
+        if !fresh.isEmpty || newest != nil { return fresh }
+        return try await latest(source, count: 1, now: now)
+    }
+
     /// "Test connection" (plan §3): reads one entry. Succeeds with the newest reading, or with nil
     /// when the site answers but has no readings yet.
     public func test(_ source: FollowSource, now: Date = Date()) async -> Result<Reading?, NightscoutError> {

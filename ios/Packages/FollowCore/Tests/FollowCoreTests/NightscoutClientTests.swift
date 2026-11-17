@@ -117,6 +117,26 @@ final class NightscoutClientTests: XCTestCase {
         XCTAssertNil(request.value(forHTTPHeaderField: "api-secret"))
     }
 
+    func testReadsFromAMomentOnWithTheSameQueryAsThePoller() async throws {
+        let transport = StubTransport(body: try fixture("entries-sgv"))
+        let since = Date(timeIntervalSince1970: 1_793_016_000.5)
+        let readings = try await NightscoutClient(transport: transport)
+            .readings(site: "ns.example.org", token: "tok-123", since: since, limit: 3000)
+        XCTAssertEqual(readings.count, 2)
+        let request = try XCTUnwrap(transport.requests.first)
+        XCTAssertEqual(transport.requests.count, 1)
+        XCTAssertEqual(request.httpMethod, "GET")
+        let components = try XCTUnwrap(URLComponents(url: try XCTUnwrap(request.url), resolvingAgainstBaseURL: false))
+        XCTAssertEqual(components.host, "ns.example.org")
+        XCTAssertEqual(components.path, "/api/v1/entries/sgv.json")
+        XCTAssertEqual(components.queryItems, [
+            URLQueryItem(name: "find[date][$gte]", value: "1793016000500"),
+            URLQueryItem(name: "count", value: "3000"),
+        ])
+        XCTAssertEqual(request.value(forHTTPHeaderField: "api-secret"), "tok-123")
+        XCTAssertFalse(request.url!.absoluteString.contains("tok-123"), "the token never goes in the URL")
+    }
+
     func testReadsTheSitesThresholdsFromStatusOnly() async throws {
         let body = #"{"settings":{"thresholds":{"bgHigh":250,"bgTargetTop":170,"bgTargetBottom":70,"bgLow":54}}}"#
         let transport = StubTransport(body: Data(body.utf8))

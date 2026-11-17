@@ -66,13 +66,106 @@ final class DemoCurveTests: XCTestCase {
     }
 }
 
+/// A Nightscout site that answers `find[date][$gte]` and `count` like the real one: the newest
+/// `count` entries from that time on, newest first. `clock` is the site's present: entries after it
+/// have not been uploaded yet.
+private final class FakeSite: HTTPTransport, @unchecked Sendable {
+    let entries: [(at: Date, mgdl: Int)]
+    var clock = Date.distantFuture
+    private(set) var requests: [URLRequest] = []
+
+    init(entries: [(at: Date, mgdl: Int)]) {
+        self.entries = entries.sorted { $0.at > $1.at }
+    }
+
+    /// One reading every five minutes back to `hours` ago, each stored twice, four seconds apart:
+    /// a phone and a watch on the same sensor.
+    static func doubled(hours: Int, now: Date) -> FakeSite {
+        var entries: [(at: Date, mgdl: Int)] = []
+        for step in 0..<(hours * 12) {
+            let at = now.addingTimeInterval(-Double(step) * 300)
+            entries.append((at, 100 + step % 50))
+            entries.append((at.addingTimeInterval(-4), 100 + step % 50))
+        }
+        return FakeSite(entries: entries)
+    }
+
+    func send(_ request: URLRequest) async throws -> (Data, Int) {
+        requests.append(request)
+        let items = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        let since = items.first { $0.name == "find[date][$gte]" }.flatMap { Double($0.value ?? "") } ?? 0
+        let count = items.first { $0.name == "count" }.flatMap { Int($0.value ?? "") } ?? 10
+        let rows = entries.filter { $0.at <= clock && $0.at.timeIntervalSince1970 * 1000 >= since }.prefix(count).map {
+            #"{"sgv":\#($0.mgdl),"date":\#(Int64($0.at.timeIntervalSince1970 * 1000)),"direction":"Flat"}"#
+        }
+        return (Data("[\(rows.joined(separator: ","))]".utf8), 200)
+    }
+}
+
+final class ReadingFeedHistoryTests: XCTestCase {
+    private let source = FollowSource.nightscout(site: URL(string: "https://ns.example.org")!, token: "fixture-token")
+
+    /// The longest time between two readings that follow each other, in seconds.
+    private func longestGap(_ readings: [Reading]) -> TimeInterval {
+        zip(readings, readings.dropFirst()).map { $0.at.timeIntervalSince($1.at) }.max() ?? 0
+    }
+
+    func testANightAwayLeavesNoHoleOnASiteThatStoresEveryReadingTwice() async throws {
+        // Opened last evening, then again eight hours later: the curve has every reading between.
+        let evening = noon.addingTimeInterval(-8 * 3600)
+        let site = FakeSite.doubled(hours: 30, now: noon)
+        let feed = ReadingFeed(client: NightscoutClient(transport: site))
+        site.clock = evening
+        var readings = ReadingHistory.merge([], try await feed.history(source, newest: nil, now: evening), now: evening)
+        XCTAssertEqual(readings.first?.at, evening)
+        site.clock = noon
+        readings = ReadingHistory.merge(readings, try await feed.history(source, newest: readings.first, now: noon), now: noon)
+
+        XCTAssertEqual(readings.first?.at, noon)
+        XCTAssertEqual(longestGap(readings), 296, "no reading is further than five minutes from the next")
+        XCTAssertEqual(readings.last?.at, noon.addingTimeInterval(-24 * 3600), "the whole day is there")
+        XCTAssertEqual(site.requests.count, 2)
+    }
+
+    func testTheFirstReadCoversTheWholeDayOnADoubledSite() async throws {
+        let feed = ReadingFeed(client: NightscoutClient(transport: FakeSite.doubled(hours: 30, now: noon)))
+        let readings = try await feed.history(source, newest: nil, now: noon)
+        XCTAssertEqual(readings.count, 2 * 288 + 1)
+        XCTAssertEqual(readings.last?.at, noon.addingTimeInterval(-24 * 3600))
+    }
+
+    func testASiteSilentForLongerThanADayStillGivesItsNewestReading() async throws {
+        let last = noon.addingTimeInterval(-30 * 3600)
+        let site = FakeSite(entries: [(last, 140), (last.addingTimeInterval(-300), 130)])
+        let feed = ReadingFeed(client: NightscoutClient(transport: site))
+        let readings = try await feed.history(source, newest: nil, now: noon)
+        XCTAssertEqual(readings.map(\.mgdl), [140])
+        XCTAssertEqual(site.requests.count, 2)
+        // With a reading in hand already, an empty answer is just that: nothing new, no second read.
+        let again = try await feed.history(source, newest: readings.first, now: noon)
+        XCTAssertTrue(again.isEmpty)
+        XCTAssertEqual(site.requests.count, 3)
+    }
+
+    func testTheDemoHistoryIsTheSameCurveWithoutTheNetwork() async throws {
+        let transport = StubTransport(failure: .unreachable)
+        let feed = ReadingFeed(client: NightscoutClient(transport: transport))
+        let day = try await feed.history(.demo, newest: nil, now: noon)
+        XCTAssertEqual(day, DemoCurve.latest(now: noon, count: 289))
+        let since = try await feed.history(.demo, newest: reading(10, 0), now: noon)
+        XCTAssertEqual(since, DemoCurve.latest(now: noon, count: 3))
+        XCTAssertTrue(transport.requests.isEmpty)
+    }
+}
+
 final class ReadingHistoryTests: XCTestCase {
-    func testFetchesTheFullHistoryFirstThenOnlyTheGap() {
-        XCTAssertEqual(ReadingHistory.fetchCount(newest: nil, now: noon), 300)
-        XCTAssertEqual(ReadingHistory.fetchCount(newest: reading(2, 100), now: noon), 3)
-        XCTAssertEqual(ReadingHistory.fetchCount(newest: reading(31, 100), now: noon), 9)
-        XCTAssertEqual(ReadingHistory.fetchCount(newest: reading(60 * 13, 100), now: noon), 159)
-        XCTAssertEqual(ReadingHistory.fetchCount(newest: reading(60 * 25, 100), now: noon), 300)
+    func testReadsTheFullDayFirstThenFromTheNewestReadingOn() {
+        let dayAgo = noon.addingTimeInterval(-24 * 3600)
+        XCTAssertEqual(ReadingHistory.fetchStart(newest: nil, now: noon), dayAgo)
+        XCTAssertEqual(ReadingHistory.fetchStart(newest: reading(2, 100), now: noon), reading(2, 100).at)
+        XCTAssertEqual(ReadingHistory.fetchStart(newest: reading(60 * 13, 100), now: noon), reading(60 * 13, 100).at)
+        // Nothing within the day: the whole day again.
+        XCTAssertEqual(ReadingHistory.fetchStart(newest: reading(60 * 25, 100), now: noon), dayAgo)
     }
 
     func testMergesNewestFirstOnePerTimeAndForgetsAfterTwentyFourHours() {

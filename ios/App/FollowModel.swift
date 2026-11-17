@@ -8,7 +8,7 @@ import Foundation
 @MainActor
 final class FollowModel: ObservableObject {
     @Published private(set) var source: FollowSource? = FollowSourceStore.load()
-    /// The last 12 hours, newest first.
+    /// The last 24 hours, newest first.
     @Published private(set) var readings: [Reading] = []
     @Published private(set) var error: NightscoutError?
     /// The colour thresholds in force (ThresholdStore: the user's, the site's, or Nightscout's defaults).
@@ -75,9 +75,8 @@ final class FollowModel: ObservableObject {
         guard let source else { return }
         let asked = generation
         let now = Date()
-        let count = ReadingHistory.fetchCount(newest: latest, now: now)
         do {
-            let fresh = try await feed.latest(source, count: count, now: now)
+            let fresh = try await feed.history(source, newest: latest, now: now)
             guard asked == generation else { return }
             let before = latest
             readings = ReadingHistory.merge(readings, fresh, now: Date())

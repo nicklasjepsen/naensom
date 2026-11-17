@@ -88,6 +88,16 @@ public struct NightscoutClient: Sendable {
         getRequest(baseURL: baseURL, path: entriesPath, token: token, query: [URLQueryItem(name: "count", value: String(max(1, count)))])
     }
 
+    /// The request for every reading from `since` on (the newest `limit` of them): the same
+    /// `find[date][$gte]=<ms>&count=<n>` the poller's Nightscout source sends.
+    public static func entriesRequest(baseURL: URL, token: String, since: Date, limit: Int) -> URLRequest {
+        let milliseconds = Int64((since.timeIntervalSince1970 * 1000).rounded(.down))
+        return getRequest(baseURL: baseURL, path: entriesPath, token: token, query: [
+            URLQueryItem(name: "find[date][$gte]", value: String(milliseconds)),
+            URLQueryItem(name: "count", value: String(max(1, limit))),
+        ])
+    }
+
     /// The request for the site's status, which carries its colour thresholds.
     public static func statusRequest(baseURL: URL, token: String) -> URLRequest {
         getRequest(baseURL: baseURL, path: statusPath, token: token, query: nil)
@@ -109,7 +119,19 @@ public struct NightscoutClient: Sendable {
     /// The newest readings, newest first.
     public func latest(site: String, token: String, count: Int = 2) async throws -> [Reading] {
         let base = try Self.normalizeBaseURL(site)
-        let (body, status) = try await transport.send(Self.entriesRequest(baseURL: base, token: token, count: count))
+        return try await entries(Self.entriesRequest(baseURL: base, token: token, count: count))
+    }
+
+    /// Every reading from `since` on, newest first, however many the site holds for that time (up
+    /// to `limit`). A curve is read this way, by time: a count of expected readings falls short on
+    /// a site that stores each reading twice or uploads every minute, and leaves a hole.
+    public func readings(site: String, token: String, since: Date, limit: Int) async throws -> [Reading] {
+        let base = try Self.normalizeBaseURL(site)
+        return try await entries(Self.entriesRequest(baseURL: base, token: token, since: since, limit: limit))
+    }
+
+    private func entries(_ request: URLRequest) async throws -> [Reading] {
+        let (body, status) = try await transport.send(request)
         if status == 401 || status == 403 { throw NightscoutError.tokenRefused }
         guard (200..<300).contains(status) else { throw NightscoutError.status(status) }
         return try Self.parseEntries(body)

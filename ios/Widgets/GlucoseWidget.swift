@@ -66,7 +66,9 @@ enum GlucoseTimelineLoader {
             // The next reading is due and the phone may not have opened the app for hours: read the
             // site like the app does (GET, read-only token in the header, FollowCore's client).
             let feed = ReadingFeed(client: NightscoutClient(transport: URLSessionTransport()))
-            let fetched = (try? await feed.latest(followed, count: 2, now: now)) ?? []
+            // Four, not two: a site that stores every reading twice would otherwise answer with two
+            // copies of the newest and no reading before it.
+            let fetched = (try? await feed.latest(followed, count: 4, now: now)) ?? []
             // While the read was under way the phone may have been removed or moved to another
             // site, or the app may have stored a newer reading: decide against what is true now.
             let after = WidgetTimeline.afterFetch(

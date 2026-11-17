@@ -21,21 +21,22 @@ public enum CurveWindow: Int, Codable, CaseIterable, Sendable {
 }
 
 /// The readings the app keeps while it is open: the last 24 hours, newest first, one per
-/// timestamp. Fetched in full once, then topped up with the few readings since the newest.
+/// timestamp. Fetched in full once, then topped up with the readings since the newest.
 public enum ReadingHistory {
     /// The longest curve the app shows.
     public static let keep: TimeInterval = CurveWindow.twentyFourHours.duration
-    /// Twenty-four hours of five-minute readings (288) and a little more for a site that uploads
-    /// more often.
-    public static let fullFetchCount = 300
+    /// The most readings one fetch asks for: twenty-four hours of a site that uploads every minute,
+    /// stored twice over. A cap only; the site sends what it holds for the time asked.
+    public static let fetchLimit = 3000
 
-    /// How many readings to ask for: the full history when there is none, otherwise enough to
-    /// cover the gap since the newest one (one every five minutes) and a little more.
-    public static func fetchCount(newest: Reading?, now: Date) -> Int {
-        guard let newest else { return fullFetchCount }
-        let gap = max(0, now.timeIntervalSince(newest.at))
-        if gap >= keep { return fullFetchCount }
-        return min(fullFetchCount, Int(gap / 300) + 3)
+    /// The moment to read from: the whole twenty-four hours when there is no history (or none that
+    /// recent), otherwise the newest reading on. Always a time, never a count of the readings
+    /// expected since: a site with a phone and a watch on one sensor stores every reading twice, so
+    /// "one per five minutes" covered half the time away and left a hole in the curve.
+    public static func fetchStart(newest: Reading?, now: Date) -> Date {
+        let oldest = now.addingTimeInterval(-keep)
+        guard let newest, newest.at > oldest else { return oldest }
+        return newest.at
     }
 
     /// Old and new together, newest first, one per timestamp (the fresh copy wins), older than
