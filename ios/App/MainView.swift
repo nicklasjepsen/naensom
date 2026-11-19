@@ -41,23 +41,55 @@ struct MainView: View {
                         .foregroundStyle(.secondary)
                 }
                 .padding()
+                // Room to scroll the last lines clear of the settings button.
+                .padding(.bottom, SettingsButton.size + 12)
             }
             .scrollDisabled(scrubbing)
-            .navigationTitle("")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showSettings = true
-                    } label: {
-                        Label(L("settings.title"), systemImage: "gearshape")
-                    }
-                }
+            // No navigation bar: it held only the settings button and pushed everything down.
+            .toolbar(.hidden, for: .navigationBar)
+            .overlay(alignment: .bottomTrailing) {
+                SettingsButton { showSettings = true }
+                    .padding(.trailing, 16)
+                    .padding(.bottom, 8)
             }
             .refreshable { await follow.refresh() }
             .sheet(isPresented: $showSettings) { SettingsView() }
         }
         .task(id: follow.sourceKey) { await follow.refreshWhileVisible() }
+    }
+}
+
+/// Settings, as a round button floating over the bottom corner of the screen, where a thumb
+/// reaches it and it takes no room from the content. Glass where the system has it (iOS 26),
+/// otherwise the system's thin material.
+private struct SettingsButton: View {
+    static let size: CGFloat = 52
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "gearshape")
+                .font(.system(size: 21, weight: .medium))
+                .foregroundStyle(Color.primary)
+                .frame(width: Self.size, height: Self.size)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .modifier(FloatingSurface())
+        .accessibilityLabel(L("settings.title"))
+    }
+}
+
+private struct FloatingSurface: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.glassEffect(.regular.interactive(), in: .circle)
+        } else {
+            content
+                .background(.regularMaterial, in: Circle())
+                .overlay(Circle().strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.15), radius: 8, y: 2)
+        }
     }
 }
 
