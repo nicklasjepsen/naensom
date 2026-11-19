@@ -43,9 +43,11 @@ export {
 } from "./telemetry";
 
 export {
-  DOSING_ALLOW_LIST,
+  DOSE_ADVICE_ALLOW_LIST,
   DOSING_WORDS,
+  findDoseAdvice,
   findDosingVocabulary,
+  type DoseAdviceFinding,
   type DosingFinding,
 } from "./dosing-vocabulary";
 
@@ -154,17 +156,11 @@ export {
   type UnitsLocale,
 } from "./pump/index";
 export {
-  BOLUS_TIME,
-  MEAL_CURVE_ALLOW_LIST,
-  PUMP_HISTORY_FILES,
   SUGGESTION_WORDS,
   UNIT_AMOUNT,
-  findPumpCopyVocabulary,
   findPumpFieldsInAiInput,
   findSuggestionVocabulary,
   findUnitAmounts,
-  isPumpHistoryFile,
-  type PumpCopyFinding,
   type SuggestionFinding,
   type UnitAmountFinding,
 } from "./dosing-vocabulary";

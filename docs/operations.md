@@ -451,7 +451,7 @@ API so the earlier release assertions retain their original data.
 
 What the pump delivered, imported read-only and shown as pump history: the time and delivered units
 of each bolus the pump recorded, shown to owners and carers outside simpleMode, never to a viewer,
-never to an AI model. Nænsom never computes, suggests or lets anyone enter insulin; the pump record
+never to an AI model. Nænsom never calculates, suggests or takes an insulin dose; the pump record
 changes none of that. Migration `0006_pump` adds the `PumpBolus` table, the four pump columns on
 `Space` (`pumpSource`, `pumpStatus`, `pumpFailures`, `lastPumpAt`) and `Meal.pumpBolusId` and
 `Meal.source`.
@@ -656,7 +656,7 @@ a tool loop executes at most eight tool calls in total. A failed handler becomes
 `tool-unavailable` result alongside the successful results, so the model can finish the batch. The wrapper validates structured output and guards
 every output string before returning it. Generated strings also reject the descriptive-copy test's
 advice verbs (plus the Danish imperative), bare English/Danish unit words and numeric unit
-abbreviations; the UI vocabulary allow-list does not apply to generated text. `ai-rejected` means output validation or the vocabulary
+abbreviations; nothing is let through for generated text, whatever the UI copy may show. `ai-rejected` means output validation or the vocabulary
 guard failed; `ai-unavailable` includes provider refusals and errors. Neither includes generated text.
 
 `AiCall` is content-free bookkeeping and intentionally does not emit events (plan decision 5).

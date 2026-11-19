@@ -6,22 +6,19 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import {
-  BOLUS_TIME,
-  DOSING_ALLOW_LIST,
+  DOSE_ADVICE_ALLOW_LIST,
   DOSING_WORDS,
-  MEAL_CURVE_ALLOW_LIST,
-  PUMP_HISTORY_FILES,
   SUGGESTION_WORDS,
   UNIT_AMOUNT,
+  findDoseAdvice,
   findDosingVocabulary,
-  findPumpCopyVocabulary,
   findPumpFieldsInAiInput,
   findSuggestionVocabulary,
   findUnitAmounts,
-  isPumpHistoryFile,
   messageStrings,
   schemaVocabulary,
 } from "./dosing-vocabulary";
+import * as aiSchemas from "./schemas/ai";
 import * as schemas from "./schemas/index";
 
 const messagesDir = path.resolve(import.meta.dirname, "../../web/messages");
@@ -48,8 +45,8 @@ function readUiMessages(): Record<string, unknown> {
   return files;
 }
 
-describe("dosing vocabulary (the hard rule: Nænsom never computes or suggests insulin)", () => {
-  it("has exactly the list and the allow-list from the plan (§8)", () => {
+describe("the dosing rule: Nænsom never calculates, suggests or takes a dose", () => {
+  it("has exactly the dosing words, the suggestion words and the app's own promise", () => {
     expect([...DOSING_WORDS]).toEqual([
       "insulin",
       "dosis",
@@ -67,34 +64,6 @@ describe("dosing vocabulary (the hard rule: Nænsom never computes or suggests i
       "insulin units",
       "units of insulin",
     ]);
-    expect([...DOSING_ALLOW_LIST]).toEqual([
-      "regner aldrig insulin",
-      "Nænsom · åben kildekode · regner aldrig insulin",
-      "Nænsom er åben kildekode, regner aldrig insulin og erstatter ikke din sensor-app eller pumpe-app.",
-      "never calculates insulin",
-      "Nænsom · open source · never calculates insulin",
-      "Nænsom is open source, never calculates insulin and does not replace your sensor app or pump app.",
-      "Bolus givet nu",
-      "Bolus før måltid",
-      "bolus given now",
-      "bolus before meal",
-    ]);
-    // v0.7.0 (plan §7): the lists and the pattern stay exactly as they were before pump history.
-    expect([...MEAL_CURVE_ALLOW_LIST]).toEqual([
-      "Bolus",
-      "Bolus før",
-      "Bolus givet",
-      "Bolus",
-      "Bolus before",
-      "Bolus given",
-      "Bolus before meal",
-    ]);
-    expect(BOLUS_TIME.source).toBe(String.raw`^Bolus (?:\d{2}:\d{2}|\{time\})$`);
-    expect(BOLUS_TIME.flags).toBe("");
-  });
-
-  it("has exactly the pump-history files and the suggestion list from v0.7.0 plan §7", () => {
-    expect([...PUMP_HISTORY_FILES]).toEqual(["pump.json", "pumpMeal.json", "pumpSettings.json"]);
     expect([...SUGGESTION_WORDS]).toEqual([
       "bør",
       "burde",
@@ -115,21 +84,14 @@ describe("dosing vocabulary (the hard rule: Nænsom never computes or suggests i
       "take",
       "next time",
     ]);
-    for (const where of [
-      "da/pump.json:curve.at",
-      "en/pumpMeal.json:badge",
-      "da/pumpSettings.json:title",
-      "pump/messages/da.json:meal.item",
-      "pump/messages/en.json:meal.item",
-    ])
-      expect(isPumpHistoryFile(where), where).toBe(true);
-    for (const where of [
-      "da/log.json:bolus.at",
-      "en/chart.json:x",
-      "push/da.json:estimate.title",
-      "da/pumpkin.json:x",
-    ])
-      expect(isPumpHistoryFile(where), where).toBe(false);
+    expect([...DOSE_ADVICE_ALLOW_LIST]).toEqual([
+      "regner aldrig insulin",
+      "Nænsom · åben kildekode · regner aldrig insulin",
+      "Nænsom er åben kildekode, regner aldrig insulin og erstatter ikke din sensor-app eller pumpe-app.",
+      "never calculates insulin",
+      "Nænsom · open source · never calculates insulin",
+      "Nænsom is open source, never calculates insulin and does not replace your sensor app or pump app.",
+    ]);
   });
 
   it("flags a listed word, word-bounded and case-insensitive", () => {
@@ -151,7 +113,7 @@ describe("dosing vocabulary (the hard rule: Nænsom never computes or suggests i
         ["k", "Glucose unit"],
       ]),
     ).toEqual([]);
-    // "2 units" is not a dosing word; since v0.7.0 it is a unit amount, which fails on its own.
+    // "2 units" is not a dosing word; it is a unit amount.
     expect(findDosingVocabulary([["k", "2 units"]])).toEqual([]);
     expect(findUnitAmounts([["k", "2 units"]])).toEqual([
       { where: "k", text: "2 units", amount: "2 units" },
@@ -165,18 +127,10 @@ describe("dosing vocabulary (the hard rule: Nænsom never computes or suggests i
     ).toEqual([]);
   });
 
-  it("passes the enumerated allow-list and the Bolus HH:MM pattern, and nothing else", () => {
-    const allowed = [...DOSING_ALLOW_LIST, "Bolus 12:30", "Bolus 07:05"].map(
-      (s): [string, string] => ["k", s],
-    );
-    expect(findDosingVocabulary(allowed)).toEqual([]);
-    expect(
-      findDosingVocabulary([["k", "Bolus 12:30 og ordene enheder insulin"]]).map((f) => f.term),
-    ).toEqual(["insulin", "bolus", "enheder insulin"]);
-    expect(findDosingVocabulary([["k", "Bolus nu"]])).toHaveLength(1);
-    expect(
-      findDosingVocabulary([["k", "regner aldrig insulin eller dosis"]]).map((f) => f.term),
-    ).toEqual(["insulin", "dosis"]);
+  it("lets nothing through: a dosing word is found wherever it is looked for", () => {
+    // Until 2026-11-19 an allow-list let some copy pass. What is looked at now is AI only.
+    for (const text of ["Bolus 12:30", "Bolus", "Bolus før måltid", ...DOSE_ADVICE_ALLOW_LIST])
+      expect(findDosingVocabulary([["k", text]]), text).not.toEqual([]);
   });
 
   it("walks every exported Zod schema's keys and enum values", () => {
@@ -187,7 +141,11 @@ describe("dosing vocabulary (the hard rule: Nænsom never computes or suggests i
     );
     expect(vocabulary.map(([, text]) => text)).toContain("tokenHash");
     expect(vocabulary.map(([, text]) => text)).toContain("double-up");
-    expect(findDosingVocabulary(vocabulary)).toEqual([]);
+    // No AI schema names insulin in a key or an enum value: a model is neither given such a
+    // figure nor asked for one.
+    const ai = schemaVocabulary(aiSchemas);
+    expect(ai.map(([, text]) => text)).toContain("totalCarbs");
+    expect(findDosingVocabulary(ai)).toEqual([]);
   });
 
   it("reads every string in web/messages/<locale>/*.json", () => {
@@ -199,7 +157,7 @@ describe("dosing vocabulary (the hard rule: Nænsom never computes or suggests i
     ]);
   });
 
-  it("finds no dosing vocabulary in the push copy, both locales, estimate and symptom alike", () => {
+  it("pairs no insulin figure with advice in the push copy, both locales", () => {
     const files: Record<string, unknown> = {};
     for (const file of readdirSync(pushMessagesDir).filter((f) => f.endsWith(".json"))) {
       files[`push/${file}`] = JSON.parse(
@@ -211,11 +169,10 @@ describe("dosing vocabulary (the hard rule: Nænsom never computes or suggests i
     expect(strings.map(([where]) => where)).toEqual(
       expect.arrayContaining(["push/da.json:estimate.title", "push/da.json:symptom.body"]),
     );
-    expect(findDosingVocabulary(strings)).toEqual([]);
-    expect(findUnitAmounts(strings)).toEqual([]);
+    expect(findDoseAdvice(strings)).toEqual([]);
   });
 
-  it("finds no dosing vocabulary or unit amount in the iPhone relay's alert copy", () => {
+  it("pairs no insulin figure with advice in the iPhone relay's alert copy", () => {
     const files: Record<string, unknown> = {};
     for (const file of readdirSync(liveMessagesDir).filter((f) => f.endsWith(".json"))) {
       files[`live/messages/${file}`] = JSON.parse(
@@ -225,11 +182,10 @@ describe("dosing vocabulary (the hard rule: Nænsom never computes or suggests i
     expect(Object.keys(files).sort()).toEqual(["live/messages/da.json", "live/messages/en.json"]);
     const strings = messageStrings(files);
     expect(strings.map(([where]) => where)).toContain("live/messages/da.json:alert.low");
-    expect(findDosingVocabulary(strings)).toEqual([]);
-    expect(findUnitAmounts(strings)).toEqual([]);
+    expect(findDoseAdvice(strings)).toEqual([]);
   });
 
-  it("finds no dosing vocabulary or unit amount on the iPhone app's web pages", () => {
+  it("pairs no insulin figure with advice on the iPhone app's web pages", () => {
     const files: Record<string, unknown> = {};
     for (const file of readdirSync(iosPagesMessagesDir).filter((f) => f.endsWith(".json"))) {
       files[`ios-pages/messages/${file}`] = JSON.parse(
@@ -242,23 +198,23 @@ describe("dosing vocabulary (the hard rule: Nænsom never computes or suggests i
     ]);
     const strings = messageStrings(files);
     expect(strings.map(([where]) => where)).toContain("ios-pages/messages/da.json:follow.title");
-    expect(findDosingVocabulary(strings)).toEqual([]);
-    expect(findUnitAmounts(strings)).toEqual([]);
+    expect(findDoseAdvice(strings)).toEqual([]);
   });
 
-  it("finds no dosing vocabulary or unit amount in the UI strings outside pump history", () => {
+  it("pairs no insulin figure with advice in any UI string, the pump's copy included", () => {
     const files = readUiMessages();
     // Both locales are read, namespace by namespace; an empty walk would pass vacuously.
-    expect(Object.keys(files)).toEqual(expect.arrayContaining(["da/app.json", "en/app.json"]));
-    const strings = messageStrings(files).filter(([where]) => !isPumpHistoryFile(where));
+    expect(Object.keys(files)).toEqual(
+      expect.arrayContaining(["da/app.json", "en/app.json", "da/pump.json", "en/pumpMeal.json"]),
+    );
+    const strings = messageStrings(files);
     expect(strings.length).toBeGreaterThan(100);
-    expect(findDosingVocabulary(strings)).toEqual([]);
-    expect(findUnitAmounts(strings)).toEqual([]);
+    // The copy does show what the pump reported, so the check has something to look at.
+    expect(findUnitAmounts(strings).length + findDosingVocabulary(strings).length).toBeGreaterThan(0);
+    expect(findDoseAdvice(strings)).toEqual([]);
   });
 
-  it("reads the pump-history files with the pump scope, and shared/src/pump/messages with key parity", () => {
-    const ui = messageStrings(readUiMessages()).filter(([where]) => isPumpHistoryFile(where));
-    expect(findPumpCopyVocabulary(ui)).toEqual([]);
+  it("pairs no insulin figure with advice in shared/src/pump/messages, with key parity", () => {
     const files: Record<string, unknown> = {};
     for (const file of readdirSync(pumpMessagesDir).filter((f) => f.endsWith(".json"))) {
       files[`pump/messages/${file}`] = JSON.parse(
@@ -268,7 +224,7 @@ describe("dosing vocabulary (the hard rule: Nænsom never computes or suggests i
     expect(Object.keys(files).sort()).toEqual(["pump/messages/da.json", "pump/messages/en.json"]);
     const strings = messageStrings(files);
     expect(strings.map(([where]) => where)).toContain("pump/messages/da.json:meal.item");
-    expect(findPumpCopyVocabulary(strings)).toEqual([]);
+    expect(findDoseAdvice(strings)).toEqual([]);
     const keys = (file: string) =>
       strings
         .filter(([where]) => where.startsWith(`${file}:`))
@@ -277,35 +233,40 @@ describe("dosing vocabulary (the hard rule: Nænsom never computes or suggests i
     expect(keys("pump/messages/da.json").length).toBeGreaterThan(0);
   });
 
-  it("lets pump.json show what the pump delivered and nothing that advises (v0.7.0 plan §7)", () => {
-    const pump = (text: string): [string, string] => ["da/pump.json:k", text];
-    expect(findPumpCopyVocabulary([pump("Automatisk bolus 03:10 · 0,6 E")])).toEqual([]);
-    expect(findPumpCopyVocabulary([pump("Bolus 11:58 · 2,4 E")])).toEqual([]);
-    expect(findPumpCopyVocabulary([pump("Pumpe til 11:58")])).toEqual([]);
-    expect(findPumpCopyVocabulary([pump("Du bør give 2 E")]).map((f) => f.term)).toEqual([
-      "bør",
-      "give",
-    ]);
-    expect(findPumpCopyVocabulary([pump("Korrektion 1 E")]).map((f) => f.term)).toEqual([
-      "korrektion",
-    ]);
-    expect(findPumpCopyVocabulary([pump("Beregnet bolus")]).map((f) => f.term)).toEqual([
-      "beregn*",
-    ]);
-    expect(findPumpCopyVocabulary([pump("ratio")]).map((f) => f.term)).toEqual(["ratio"]);
+  it("lets copy show what the pump reports and nothing that advises about it", () => {
+    const copy = (text: string): [string, string] => ["da/any.json:k", text];
     for (const text of [
-      "2 enheder insulin",
-      "Dosis 2 E",
-      "ICR 10",
+      "Automatisk bolus 03:10 · 0,6 E",
+      "Bolus 11:58 · 2,4 E",
+      "Insulin i kroppen",
+      "Insulin tilbage: {units} E",
+      "Korrektion 1 E",
+      "Pumpe til 11:58",
+      // A suggestion word about something else is not advice about insulin.
+      "Tag et billede",
+      "Næste gang du logger et måltid",
+      ...DOSE_ADVICE_ALLOW_LIST,
+    ])
+      expect(findDoseAdvice([copy(text)]), text).toEqual([]);
+    expect(findDoseAdvice([copy("Du bør give 2 E")])).toEqual([
+      { where: "da/any.json:k", text: "Du bør give 2 E", term: "bør", about: "2 E" },
+      { where: "da/any.json:k", text: "Du bør give 2 E", term: "give", about: "2 E" },
+    ]);
+    expect(findDoseAdvice([copy("Beregnet bolus")]).map((f) => [f.term, f.about])).toEqual([
+      ["beregn*", "bolus"],
+    ]);
+    for (const text of [
       "Tag 2 E næste gang",
       "We suggest 2 U",
+      "You should take more insulin",
+      "Anbefalet dosis",
+      "Nænsom regner aldrig insulin, men du bør tage 2 E",
     ])
-      expect(findPumpCopyVocabulary([pump(text)]), text).not.toEqual([]);
+      expect(findDoseAdvice([copy(text)]), text).not.toEqual([]);
   });
 
-  it("fails on a unit amount and on bolus in any other namespace", () => {
+  it("recognises an amount of insulin and nothing that only looks like one", () => {
     const other = (text: string): [string, string] => ["da/chart.json:k", text];
-    expect(findDosingVocabulary([other("Bolus 2,4 E")]).map((f) => f.term)).toEqual(["bolus"]);
     expect(findUnitAmounts([other("Bolus 2,4 E")]).map((f) => f.amount)).toEqual(["2,4 E"]);
     expect(findUnitAmounts([other("giv 2 enheder")]).map((f) => f.amount)).toEqual(["2 enheder"]);
     expect(findUnitAmounts([other("{count} enheder")]).map((f) => f.amount)).toEqual([
@@ -371,7 +332,7 @@ describe("dosing vocabulary (the hard rule: Nænsom never computes or suggests i
     }
   });
 
-  it("rejects bolus and a unit amount in a model answer, with no allow-list and no pump scope", async () => {
+  it("rejects bolus and a unit amount in a model answer, whatever copy may show", async () => {
     const { assertNoDosing } = await import("./ai/guard");
     for (const text of ["Bolus 11:58", "bolus", "2 units", "Automatisk bolus 03:10 · 0,6 E", "2 E"])
       expect(() => {
@@ -383,7 +344,7 @@ describe("dosing vocabulary (the hard rule: Nænsom never computes or suggests i
   });
 });
 
-it("dosing guard covers every AI prompt and accepted insight fixture without the UI allow-list", async () => {
+it("dosing guard covers every AI prompt and accepted insight fixture", async () => {
   const { assertNoDosing } = await import("./ai/guard");
   const { MealInsight, WeekInsight } = await import("./schemas/ai");
   const aiDir = path.join(import.meta.dirname, "ai");

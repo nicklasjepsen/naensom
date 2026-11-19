@@ -70,11 +70,9 @@ Open the PR as a draft, add the label `needs-owner`, write the question in the P
 - Touch paths outside your `owns` list except the shared append-only files named in the brief.
 - Merge with `--admin` or with a red check, force-push, rebase someone else's branch, or delete
   branches you did not create.
-- Add anything that computes, suggests or lets anyone enter insulin: no input field, no calculation,
-  no ratio, no correction, no "you should", including tests and prompts. The one exception is pump
-  history (the time and delivered units of a bolus the pump recorded, read-only, to owners and carers
-  outside simpleMode, never to a viewer, never to an AI model); its copy lives only in `pump.json`,
-  `pumpMeal.json`, `pumpSettings.json` and `shared/src/pump/messages/`.
+- Add anything that calculates, suggests or takes an insulin dose: no dose input, no calculation, no
+  ratio or correction worked out, no "you should", including tests and prompts; and nothing that
+  gives an AI model insulin figures. Showing what the pump reports is allowed.
 - Put a real person, a real glucose trace, a secret or a photo of a person in the repo.
 - Reach for a mock to make a hard test pass when the code is wrong.
 

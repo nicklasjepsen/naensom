@@ -34,8 +34,8 @@ legal judgement, or his name.
       test through the 8-hour restart on a real phone (current after it is the aim; plainly stale is
       acceptable, plan §9 decision 6). **Owner** (his phone).
 - [ ] **Screenshots captured** per `screenshots.md`, both languages, both sizes.
-- [ ] **Copy check by hand** (a choice for the store page, not a rule on the app, which has shown
-      the pump's own insulin figures since 2026-11-19): the listing, review notes and screenshot captions contain none of the
+- [ ] **Copy check by hand** (a choice for the store page; the app itself shows the pump's own
+      insulin figures since 2026-11-19): the listing, review notes and screenshot captions contain none of the
       words in `shared/src/dosing-vocabulary.ts` (`insulin`, `dosis`, `dose`, `dosing`, `ratio`,
       `correction`, `korrektion`, `ICR`, `ISF`, `IE`, `IU`, `bolus`). The review notes use "never
       calculates insulin" once and name the two pump figures the app shows ("Insulin on board",

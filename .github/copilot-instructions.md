@@ -6,12 +6,10 @@ the design spec is in `docs/superpowers/specs/2026-10-14-naensom-design.md`.
 
 ## Report
 
-1. **Hard-rule violations**, always, as blocking: insulin dosing in any form (an input field, a
-   calculation, a ratio, a correction, a "you should", in code, copy, prompts, schemas or tests; the
-   one exception is pump history, the time and delivered units of a bolus the pump recorded, shown
-   read-only to owners and carers outside simpleMode, never to a viewer, never to an AI model, and
-   its copy only in the pump namespaces; the rule does not apply to the iPhone app under `ios/`;
-   `CLAUDE.md`, hard rules); data from an external source
+1. **Hard-rule violations**, always, as blocking: insulin dosing in any form (a dose input, a dose
+   calculation, a ratio or correction worked out, a "you should", in code, copy, prompts, schemas or
+   tests; an insulin figure given to or produced by an AI model; showing what the pump reports is
+   allowed and is not a violation; `CLAUDE.md`, hard rules); data from an external source
    or AI created without `verified: false`; a glucose value without its timestamp or rendered without
    its age; the `viewer` role receiving glucose, or any role check done only in the UI; raw readings
    sent to an AI provider; a write to space data that does not go through `emit()`; a vendor API

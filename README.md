@@ -35,7 +35,7 @@ What is still to come is on the [roadmap](#roadmap). People who are not on Azure
 
 ## What it will never do
 
-**Nænsom never computes, suggests or lets anyone enter insulin.** No input field, no calculation, no ratio, no correction, no "you should". You look up carbs here and enter them in your pump or pen. The one exception is pump history: the time and delivered units of a bolus your pump recorded, imported read-only, shown to owners and carers (never to a viewer, never to an AI model). Showing what the pump delivered is allowed; setting or advising a dose is not. This is a deliberate clinical and legal boundary, enforced in code. The iPhone app is a Nightscout follower outside this rule: it also shows what the pump reports about itself (its battery, active insulin and insulin left).
+**Nænsom never calculates, suggests or takes an insulin dose.** No dose input, no calculation, no ratio or correction worked out, no "you should", and no AI model is given insulin figures or gives any. You look up carbs here and enter them in your pump or pen. Nænsom may show what your pump reports: its boluses, and in the iPhone app its battery, active insulin and insulin left. This is a deliberate clinical and legal boundary, enforced in code.
 
 ## Deploy your own
 

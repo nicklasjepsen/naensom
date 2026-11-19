@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { getMessages } from "@/lib/i18n/messages";
-import { findDosingVocabulary, messageStrings } from "@naensom/shared/dosing-vocabulary";
+import { findDoseAdvice, messageStrings } from "@naensom/shared/dosing-vocabulary";
 
 it("has matching Danish and English keys and descriptive copy without advice", () => {
   const da = getMessages("da").historyWeek;
@@ -15,8 +15,6 @@ it("has matching Danish and English keys and descriptive copy without advice", (
         /(?<![\p{L}\p{N}_])(bør|skal|should|take|give|giv|næste gang|next time)(?![\p{L}\p{N}_])/iu,
       );
     }
-    expect(findDosingVocabulary(messageStrings({ [`${locale}.historyWeek`]: messages }))).toEqual(
-      [],
-    );
+    expect(findDoseAdvice(messageStrings({ [`${locale}.historyWeek`]: messages }))).toEqual([]);
   }
 });

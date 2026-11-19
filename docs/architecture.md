@@ -216,7 +216,7 @@ that proves it on probe files (`shared/src/events/lint-boundaries.test.ts` and t
 
 These are checked in review and by tests; see [CLAUDE.md](../CLAUDE.md).
 
-- **No insulin dosing.** Nænsom never computes, suggests or lets anyone enter insulin: no input field, no calculation, no ratio, no correction, no "you should", not in code, AI output schemas, prompts or copy. The one exception is **pump history**: the time and delivered units of a bolus the pump recorded, imported read-only, shown to owners and carers outside simpleMode, never to a viewer, never to an AI model. Showing what the pump delivered is allowed; setting or advising a dose is not. The rule does not apply to the iPhone app (`ios/`), which may show what the pump reports to the Nightscout site it follows. (Owner, 2026-11-19.)
+- **No insulin dosing.** Nænsom never calculates, suggests or takes an insulin dose: no dose input, no dose calculation, no ratio or correction worked out, no "you should", not in code, AI output schemas, prompts or copy. No AI model is given insulin figures or gives any. Showing what the pump reports (its boluses, active insulin, insulin left) is allowed. (Owner, 2026-11-19; this replaces the pump-history exception of 2026-10-18, #216.)
   A food plugin returns carbohydrates, a glucose plugin returns readings; only a `PumpSource` returns
   what the pump delivered, and it computes nothing from it.
 - **Unverified until a human ticks it.** Anything a food source returns reaches the library with

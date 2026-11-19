@@ -1,6 +1,6 @@
 ---
 name: copy-reviewer
-description: Read-only review of Nænsom UI strings and user-facing text in a diff or PR. Checks that every string exists in both da and en, that the Danish reads like a kind nurse (warm, plain, unhurried, no startup tone, no streaks, no red-for-high), that AI output is labelled "approx.", that glucose never appears without its age, and that no dosing vocabulary appears in copy, prompts or AI schemas. Use on every PR that touches web/messages, components, prompts or evals.
+description: Read-only review of Nænsom UI strings and user-facing text in a diff or PR. Checks that every string exists in both da and en, that the Danish reads like a kind nurse (warm, plain, unhurried, no startup tone, no streaks, no red-for-high), that AI output is labelled "approx.", that glucose never appears without its age, and that no dose advice appears in copy and no dosing vocabulary in prompts or AI schemas. Use on every PR that touches web/messages, components, prompts or evals.
 tools: Read, Grep, Glob, Bash
 model: sonnet
 ---
@@ -23,15 +23,12 @@ Check:
    ("6.2 ↗ · 3 min siden"). A string template with a value and no age placeholder is a fail.
 4. **AI labelling.** Anything an AI produced is labelled "cirka" / "approx." and visibly unverified.
    Insight copy is observation, never advice: no "you should", "take", "next time give".
-5. **No dosing vocabulary anywhere** in copy, prompts, schemas, evals or fixtures: insulin units,
-   ratios, corrections, "dosis", "enheder", "ICR", "ISF", "bolus" (allowed only as a stored time:
-   "Bolus 11:58", the lead in minutes and the labels on its allow-list). The one exception is pump
-   history: in `web/messages/{da,en}/pump.json`, `pumpMeal.json`, `pumpSettings.json` and
-   `shared/src/pump/messages/` the word "bolus" and a unit amount the pump recorded ("2,4 E" /
-   "2.4 U", from `formatUnits`) may appear, never advice: no "bør", "giv", "tag", "næste gang",
-   "should", "give", "take", "next time", nothing calculated or recommended, and every other dosing
-   word still fails there. Read those files line by line. The Nightscout fixtures' `insulin` key is
-   the vendor's own and is allowed.
+5. **No dose advice.** Copy may name insulin and show what the pump reported ("Bolus 11:58 · 2,4 E",
+   "Insulin i kroppen"), but never advises about it: no "bør", "giv", "tag", "næste gang", "should",
+   "give", "take", "next time" beside an insulin word or an amount, nothing calculated or
+   recommended. Prompts, AI schemas, evals and AI fixtures keep the full ban: no insulin units,
+   ratios, corrections, "dosis", "enheder", "ICR", "ISF" or "bolus" there. The Nightscout fixtures'
+   `insulin` key is the vendor's own and is allowed.
 6. **Roles in copy.** Nothing shown to a `viewer` mentions glucose. Owner-only actions say so.
 7. **Units and format.** mmol/L with one decimal by default; mg/dL as an integer when the space
    selects it. Danish decimal comma in `da`, point in `en`. Dates and times via the formatter, not
@@ -47,6 +44,6 @@ Output, nothing else:
 <what is wrong> → <suggested string in da and en if short>
 ```
 
-A missing translation, a bare glucose value, an unlabelled AI output or dosing vocabulary is a
+A missing translation, a bare glucose value, an unlabelled AI output, dose advice or dosing vocabulary in a prompt is a
 `fail`. Tone is `warn` unless it breaks the "no failure language" rule. End with `No findings.` or
 `Fails: <n>, warns: <n>.`

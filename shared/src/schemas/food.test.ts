@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findDosingVocabulary, schemaVocabulary } from "../dosing-vocabulary";
+import { findSuggestionVocabulary, schemaVocabulary } from "../dosing-vocabulary";
 import * as food from "./food";
 import { ContributionResult, ContributionsView, FoodCorrection, FoodView } from "./food";
 import * as exported from "./index";
@@ -210,7 +210,7 @@ describe("food categories, the meal symbol and recipes (v0.6.0 plan §4)", () =>
     ])
       expect(exported).toHaveProperty(name, (food as Record<string, unknown>)[name]);
     const vocabulary = schemaVocabulary(food);
-    expect(findDosingVocabulary(vocabulary)).toEqual([]);
+    expect(findSuggestionVocabulary(vocabulary)).toEqual([]);
     expect(
       vocabulary.filter(([, key]) => /^(mmol|mgdl|trend|reading|readings|glucose)$/i.test(key)),
     ).toEqual([]);

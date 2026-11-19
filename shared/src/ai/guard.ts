@@ -22,7 +22,7 @@ export interface DosingTrip {
   match: string;
 }
 
-/** What `assertNoDosing` refuses, and why. The prefix keeps the UI-only allow-list off generated text. */
+/** What `assertNoDosing` refuses, and why. Generated text gets no allow-list (the vocabulary check has none; the prefix dates from when it had one for UI copy). */
 export function findDosingTrip(text: string, where = "output"): DosingTrip | null {
   const normalized = text.normalize("NFKC");
   const vocabulary =

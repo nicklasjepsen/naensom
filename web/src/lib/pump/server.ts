@@ -27,7 +27,7 @@ export function pumpDeps(): PumpDeps {
 }
 
 /**
- * Pump history is for owners and carers outside simpleMode (CLAUDE.md hard rules): a viewer is 403
+ * Pump history is for owners and carers outside simpleMode (how it was built in v0.7.0): a viewer is 403
  * by role and a simpleMode session is 403 by mode, here in the API, before anything is read.
  */
 export async function authorizePump(

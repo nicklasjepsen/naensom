@@ -48,7 +48,7 @@ Deliver both layouts for every screen below. A desktop layout is not the phone l
 - A glucose value is never shown without its age.
 - Viewers never see glucose anywhere — not in history, not in meal detail.
 - AI estimates are always labelled "approx." and visibly unverified.
-- No insulin input, calculation or suggestion anywhere in the UI. The one exception is pump history (v0.7.0, #216): the time and delivered units of a bolus the pump recorded, shown to owners and carers outside simpleMode, never to a viewer. Showing what the pump delivered is allowed; setting or advising a dose is not.
+- No dose input, calculation or suggestion anywhere in the UI. Showing what the pump reports (a bolus with its time and units, active insulin, insulin left) is allowed since the rule was narrowed on 2026-11-19; setting or advising a dose is not.
 - On the phone everything must work one-handed; the child's flow must work in a school corridor in under 20 seconds.
 - On desktop everything must be reachable by keyboard; the "verify a batch of foods" and "compare this dish's last five curves" flows are desktop-first and must not feel like a phone screen.
 - `simpleMode` exists on both devices and is the same shell — large, picture-first — not a different app.

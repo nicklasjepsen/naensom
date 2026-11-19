@@ -86,7 +86,7 @@ flow are the app's.
 - No personal data in logs: use `log` from `shared/src/log.ts`, which takes an allow-list of keys.
 - Nothing Danish hard-coded: a locale, country or language comes from `env` or from the `locale`
   argument. `shared/src/i18n-literals.test.ts` and the Danish-letters lint enforce it.
-- Nothing that computes, suggests or lets anyone enter insulin: no input, calculation, ratio,
+- Nothing that calculates, suggests or takes an insulin dose: no dose input, calculation, ratio,
   correction or suggestion, in code, README, fixtures or messages.
 - The vendor is never named outside the plugin's folder, its fixtures, its two message keys and the
   registry line.

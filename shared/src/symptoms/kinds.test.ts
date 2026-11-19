@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SYMPTOM_KINDS } from "../schemas/symptom";
-import { findDosingVocabulary } from "../dosing-vocabulary";
+import { findDoseAdvice } from "../dosing-vocabulary";
 import { DEFAULT_KIND_LABELS, isKnownKind, parseSpaceKinds, symptomKindLabel } from "./kinds";
 
 const custom = [{ id: "custom:itchy", label: { da: "Kloe", en: "Itchy" } }];
 
 describe("symptom kinds", () => {
-  it("labels every default kind in both languages, free of dosing words", () => {
+  it("labels every default kind in both languages, with no advice about insulin", () => {
     for (const kind of DEFAULT_SYMPTOM_KINDS) {
       expect(symptomKindLabel(kind, "da")).toBe(DEFAULT_KIND_LABELS[kind].da);
       expect(symptomKindLabel(kind, "en")).toBe(DEFAULT_KIND_LABELS[kind].en);
@@ -17,7 +17,7 @@ describe("symptom kinds", () => {
     const strings = Object.entries(DEFAULT_KIND_LABELS).flatMap(([kind, label]) =>
       (["da", "en"] as const).map((locale): [string, string] => [`${kind}.${locale}`, label[locale]]),
     );
-    expect(findDosingVocabulary(strings)).toEqual([]);
+    expect(findDoseAdvice(strings)).toEqual([]);
   });
 
   it("labels a space's custom kind from its own list and falls back to the slug", () => {

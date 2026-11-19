@@ -1,7 +1,6 @@
 /**
  * Unit display for pump history (v0.7.0 plan §7): "2,4 E" in `da`, "2.4 U" in `en`. It formats a
- * number the pump recorded and computes nothing from it; the bare letters are not dosing words,
- * and the copy-reviewer reads the pump namespaces line by line.
+ * number the pump recorded and computes nothing from it.
  */
 const UNIT_LETTER = { da: "E", en: "U" } as const;
 const NUMBER_LOCALE = { da: "da-DK", en: "en-GB" } as const;

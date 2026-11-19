@@ -122,7 +122,7 @@ glucose source is.
 - A `viewer` never receives glucose; the existing routes already enforce it.
 - No raw readings to an AI model; your adapter has nothing to do with AI.
 - Nothing Danish hard-coded; the unit and the time zone come from the space.
-- Nothing computes, suggests or lets anyone enter insulin. A glucose source returns readings only;
+- Nothing calculates, suggests or takes an insulin dose. A glucose source returns readings only;
   what the pump delivered is a separate, read-only `PumpSource` (`shared/src/pump/types.ts`) and
   never passes through a glucose source.
 

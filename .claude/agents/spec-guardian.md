@@ -15,18 +15,17 @@ Input: a PR number, a branch, a diff, or a list of paths. Get the diff yourself
 Check every rule below. For each, report `pass`, `fail` or `n/a` (the diff does not touch it), and for
 a fail give the file, the line and one sentence on why.
 
-1. **No insulin dosing.** Nænsom never computes, suggests or lets anyone enter insulin: no input field, no calculation, no ratio, no correction, no "you should", not in code, AI output schemas, prompts or copy. The one exception is **pump history**: the time and delivered units of a bolus the pump recorded, imported read-only, shown to owners and carers outside simpleMode, never to a viewer, never to an AI model. Showing what the pump delivered is allowed; setting or advising a dose is not. The rule does not apply to the iPhone app (`ios/`), which may show what the pump reports to the Nightscout site it follows. (Owner, 2026-11-19.) Do not check `ios/` against this rule.
-   What passes: `bolusTs` and `pumpBolusId` on a meal; `PumpBolus.units` and `bolusUnits` as a
-   number the pump recorded, read through the pump route and the meal views for owners and carers,
-   formatted by `formatUnits`; the word `bolus` and a unit amount in `pump.json`, `pumpMeal.json`,
-   `pumpSettings.json` and `shared/src/pump/messages/`; the field name `insulin` inside
-   `shared/src/glucose/nightscout/` and `fixtures/nightscout/`, where it is Nightscout's own key, and
-   nowhere else; the word in a test that asserts its absence. What fails: any input field for units,
-   any calculation from units, a ratio, a correction, a sensitivity factor, "take X" or "you should",
-   a unit amount in any other copy file or in a model answer, a pump field on `DayMealView`, a
-   `pump.*` event outside `GLUCOSE_EVENT_TYPES`, or a pump field in an AI input. Grep the diff for
-   `insulin`, `bolus`, `dose`, `dosing`, `units`, `ratio`, `correction`, `ICR`, `ISF`, `enhed`,
-   `enheder`, `dosis`, `suggest`, `recommend`, `calculat`, `beregn`, `anbefal` and judge each hit.
+1. **No insulin dosing.** Nænsom never calculates, suggests or takes an insulin dose: no dose input, no dose calculation, no ratio or correction worked out, no "you should", not in code, AI output schemas, prompts or copy. No AI model is given insulin figures or gives any. Showing what the pump reports (its boluses, active insulin, insulin left) is allowed. (Owner, 2026-11-19; this replaces the pump-history exception of 2026-10-18, #216.)
+   What passes: showing what the pump reported, in any view or copy file (a bolus with its time and
+   units, active insulin, insulin left, formatted by `formatUnits`); `bolusTs`, `pumpBolusId`,
+   `PumpBolus.units` and `bolusUnits` as numbers the pump recorded; the field name `insulin`. What
+   fails: any input field for a dose, any calculation of a dose (from carbs, glucose, a ratio, a
+   sensitivity factor or units), "take X" or "you should", copy that pairs an insulin word or amount
+   with advice (`findDoseAdvice` in `shared/src/dosing-vocabulary.ts`), a dosing word or a unit
+   amount in a prompt or a model answer, a pump field in an AI input, or an AI schema key that names
+   insulin. Grep the diff for `dose`, `dosing`, `dosis`, `ratio`, `correction`, `ICR`, `ISF`,
+   `suggest`, `recommend`, `calculat`, `beregn`, `anbefal` and judge each hit; in `shared/src/ai/`,
+   `evals/` and `fixtures/ai/` also `insulin`, `bolus`, `units`, `enhed`, `enheder`.
 2. **Unverified until a human ticks it.** Anything from Open Food Facts, Frida, an AI call or free
    text is created with `verified: false`. `simpleMode` queries filter on `verified: true`. A
    verification path sets `verifiedBy`.

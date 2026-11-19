@@ -45,7 +45,7 @@ for `agentType` in a workflow script.
 | `implementer` | yes | Builds one lane TDD in its own worktree, opens the PR, addresses gate findings, and merges it when the gates are green. Never touches paths outside its lane. |
 | `spec-guardian` | no | Checks a diff against the hard rules only. One verdict per rule with file and line. A fail is never overridden by another agent. |
 | `reviewer` | no | Correctness review: bugs, missing edge cases, broken contracts between `web/`, `poller/` and `shared/`, concurrency in the poller and live feed. |
-| `copy-reviewer` | no | UI strings: both `da` and `en`, kind-nurse tone, no dosing vocabulary, glucose never without age, AI output labelled approx. |
+| `copy-reviewer` | no | UI strings: both `da` and `en`, kind-nurse tone, no dose advice, glucose never without age, AI output labelled approx. |
 
 Three narrow reviewers in parallel beat one broad one: each is an independent perspective on the same
 diff, and the one that matters most here (the guardian) cannot be distracted by style.
@@ -260,10 +260,9 @@ creates worktrees, issues, tags or PRs before showing the plan and getting an OK
 - Deploy production by any path other than `release.yml` on a tag. Never `az` from a session.
 - Create Azure resources outside `infra/`. Infra is Bicep in a PR; the release pipeline applies it.
 - Put secrets, real people or real health data anywhere in the repo, fixtures or logs.
-- Add anything that computes, suggests or lets anyone enter insulin. Pump history (the time and
-  delivered units of a bolus the pump recorded, read-only, never to a viewer or an AI model) is the
-  one exception, in its own files; everything else fails the test, the guardian and the PR. The
-  rule does not apply to the iPhone app (`ios/`).
+- Add anything that calculates, suggests or takes an insulin dose, or that gives an AI model insulin
+  figures. Showing what the pump reports is allowed; everything else fails the test, the guardian
+  and the PR.
 - Widen a lane. If the task is wrong, open an issue labelled `needs-owner` and say why.
 
 ## 10. Triage and housekeeping, in the background

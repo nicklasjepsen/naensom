@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { findDosingVocabulary, schemaVocabulary } from "../dosing-vocabulary";
+import { findSuggestionVocabulary, schemaVocabulary } from "../dosing-vocabulary";
 import * as exported from "./index";
 import * as symptom from "./symptom";
 
@@ -133,7 +133,7 @@ it("is exported from the schema index and carries no dosing or glucose word", ()
   ])
     expect(exported).toHaveProperty(name, (symptom as Record<string, unknown>)[name]);
   const vocabulary = schemaVocabulary(symptom);
-  expect(findDosingVocabulary(vocabulary)).toEqual([]);
+  expect(findSuggestionVocabulary(vocabulary)).toEqual([]);
   expect(
     vocabulary.filter(([, key]) => /^(mmol|mgdl|trend|reading|readings|glucose)$/i.test(key)),
   ).toEqual([]);

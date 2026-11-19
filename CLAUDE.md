@@ -4,7 +4,7 @@
 
 ## What this is
 
-An open-source (AGPL-3.0) web app for one person with diabetes and the people around them: carb lookup (Danish products, barcodes, own dishes), a child-friendly `simpleMode`, and meals shown on the live glucose curve. **Mobile and desktop are both first-class** — installable PWA on phones for logging in the moment, a full desktop layout for review and admin; one responsive codebase, layouts designed per breakpoint. **It never computes, suggests or lets anyone enter insulin; it may show what the pump delivered, as pump history.**
+An open-source (AGPL-3.0) web app for one person with diabetes and the people around them: carb lookup (Danish products, barcodes, own dishes), a child-friendly `simpleMode`, and meals shown on the live glucose curve. **Mobile and desktop are both first-class** — installable PWA on phones for logging in the moment, a full desktop layout for review and admin; one responsive codebase, layouts designed per breakpoint. **It never calculates, suggests or takes an insulin dose; it may show what the pump reports.**
 
 ## Where things stand
 
@@ -54,7 +54,7 @@ Decided 2026-10-15 to build faster before anyone uses the app (`docs/agent-workf
 
 pnpm monorepo: `web/` Next.js (App Router, TypeScript) on Azure Static Web Apps (Standard) · `poller/` Azure Function (Node 22, timer every 5 min) · `shared/` types and domain logic · `infra/` Bicep + GitHub Actions. Azure SQL **Basic** via Prisma. Azure Web PubSub for live push with an `events` table as source of truth. Key Vault + managed identity for all secrets. Blob Storage for photos. App Insights.
 
-`desktop/` is the one piece outside pnpm: a .NET 10 WPF app for Windows (`desktop/README.md`) that shows the current glucose in the notification area, read from a Nightscout site with a read-only token until Nænsom has device tokens. The same hard rules apply (age with every value, no alarms that pretend to be a monitor, nothing about insulin). It builds in `.github/workflows/desktop.yml` on changes under `desktop/` and releases on a `desktop-vX.Y.Z` tag; `release.yml` and the `vX.Y.Z` tags never touch it.
+`desktop/` is the one piece outside pnpm: a .NET 10 WPF app for Windows (`desktop/README.md`) that shows the current glucose in the notification area, read from a Nightscout site with a read-only token until Nænsom has device tokens. The same hard rules apply (age with every value, no alarms that pretend to be a monitor, no dose advice). It builds in `.github/workflows/desktop.yml` on changes under `desktop/` and releases on a `desktop-vX.Y.Z` tag; `release.yml` and the `vX.Y.Z` tags never touch it.
 
 `ios/` is the iPhone app, also outside pnpm (`ios/README.md`, plan `docs/superpowers/plans/2026-11-08-ios-follower-app.md`): XcodeGen's `project.yml` (the `.xcodeproj` is generated, never committed), the `FollowCore` Swift package whose `swift test` runs on Linux, a SwiftUI app and a Live Activity extension that build only on a Mac. Its Live Activity is kept current by Apple push from the poller (`poller/src/live/`), never by the app running in the background. Same hard rules; tags `ios-vX.Y.Z`.
 
@@ -64,7 +64,7 @@ The product was called Frejsi until 2026-11-08. These names keep `frejsi` on pur
 
 ## Hard rules
 
-- **No insulin dosing.** Nænsom never computes, suggests or lets anyone enter insulin: no input field, no calculation, no ratio, no correction, no "you should", not in code, AI output schemas, prompts or copy. The one exception is **pump history**: the time and delivered units of a bolus the pump recorded, imported read-only, shown to owners and carers outside simpleMode, never to a viewer, never to an AI model. Showing what the pump delivered is allowed; setting or advising a dose is not. (Owner, 2026-10-18, #216.) The rule does not apply to the iPhone app (`ios/`), which may show what the pump reports to the Nightscout site it follows. (Owner, 2026-11-19.) A test asserts dosing vocabulary is absent from AI insight text, that a unit amount appears only in the pump-history copy, and that no schema key or enum value suggests anything (`shared/src/dosing.test.ts`).
+- **No insulin dosing.** Nænsom never calculates, suggests or takes an insulin dose: no dose input, no dose calculation, no ratio or correction worked out, no "you should", not in code, AI output schemas, prompts or copy. No AI model is given insulin figures or gives any. Showing what the pump reports (its boluses, active insulin, insulin left) is allowed. (Owner, 2026-11-19; this replaces the pump-history exception of 2026-10-18, #216.) A test asserts that dosing vocabulary and unit amounts are absent from AI prompts and insight text, that no pump field reaches an AI input, that no copy pairs an insulin figure with advice, and that no schema key or enum value suggests anything (`shared/src/dosing.test.ts`).
 - Anything from OFF, Frida, AI or free text is `verified: false` until a human ticks it. `simpleMode` shows verified foods only.
 - A glucose value is never rendered without its age.
 - `viewer` role never receives glucose data — enforce in the API, not the UI.

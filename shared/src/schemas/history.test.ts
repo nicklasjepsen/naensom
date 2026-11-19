@@ -5,7 +5,7 @@ import * as history from "./history";
 import * as publicSchemas from "./index";
 import { DayView } from "./meal";
 import { EventPayloads } from "./events";
-import { findDosingVocabulary, schemaVocabulary } from "../dosing-vocabulary";
+import { findSuggestionVocabulary, schemaVocabulary } from "../dosing-vocabulary";
 
 const ts = "2026-10-14T10:00:00Z";
 const target = { low: 4, high: 10 };
@@ -186,7 +186,7 @@ describe("history contracts", () => {
     expectTypeOf<keyof history.InRange>().toEqualTypeOf<
       "minutes" | "coveredMinutes" | "windowMinutes" | "complete" | "belowMinutes" | "aboveMinutes"
     >();
-    expect(findDosingVocabulary(schemaVocabulary(history))).toEqual([]);
+    expect(findSuggestionVocabulary(schemaVocabulary(history))).toEqual([]);
   });
   it("preserves the viewer contract and seven food/meal event payloads", () => {
     const keys = (schema: z.ZodType) =>

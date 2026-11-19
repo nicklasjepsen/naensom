@@ -257,8 +257,8 @@ describe("repository paths the documents cite", () => {
 describe("CONTRIBUTING.md and README.md", () => {
   const contributing = read("CONTRIBUTING.md");
   const readme = read("README.md");
-  // v0.7.0 plan §7: the rule as the owner restated it on 2026-10-18 (#216).
-  const boundary = "Nænsom never computes, suggests or lets anyone enter insulin";
+  // The rule as the owner narrowed it on 2026-11-19.
+  const boundary = "Nænsom never calculates, suggests or takes an insulin dose";
 
   it("links both plugin guides", () => {
     expect(contributing).toContain("docs/plugins/food-source.md");

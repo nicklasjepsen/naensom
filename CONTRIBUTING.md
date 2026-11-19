@@ -4,7 +4,7 @@ Thank you. Nænsom is small and early; the best contributions right now are food
 
 ## Ground rules
 
-- **Nænsom never computes, suggests or lets anyone enter insulin.** Pull requests that add an insulin input, a calculation, a ratio, a correction or a "you should" will be closed. The one exception is pump history: the time and delivered units of a bolus the pump recorded, imported read-only, shown to owners and carers outside simpleMode, never to a viewer, never to an AI model. The iPhone app (`ios/`) is outside this rule: it may show what the pump reports. This is a product boundary, not a technical limitation.
+- **Nænsom never calculates, suggests or takes an insulin dose.** Pull requests that add a dose input, a dose calculation, a ratio or correction worked out, or a "you should" will be closed, and so will any that give an AI model insulin figures or let it produce them. Showing what the pump reports (its boluses, active insulin, insulin left) is allowed. This is a product boundary, not a technical limitation.
 - Everything that enters the food library from an external source or AI is unverified until a human ticks it. Keep it that way.
 - No real people, no real health data in fixtures, seeds, screenshots or docs.
 
@@ -12,11 +12,9 @@ Thank you. Nænsom is small and early; the best contributions right now are food
 
 Three things are closed without discussion, whoever sends them and however good the code is:
 
-1. Anything that computes, suggests or lets anyone enter insulin: an input field, a calculation, a
-   ratio, a correction, a "typical" dose, a "you should". It is not allowed in code, copy, prompts,
-   schemas, fixtures or tests. Showing what the pump delivered (pump history, read-only) is the one
-   exception, and it never reaches a viewer or an AI model. The rule does not apply to the iPhone
-   app (`ios/`).
+1. Anything that calculates, suggests or takes an insulin dose: a dose input, a calculation, a
+   ratio or correction worked out, a "typical" dose, a "you should". It is not allowed in code,
+   copy, prompts, schemas, fixtures or tests. Showing what the pump reports is not this.
 2. Data from an external source, an AI or free text marked `verified`. Only a person ticks that box.
 3. Real people or real health data: a real glucose trace, a real name or address, a photo of a person,
    a secret or a credential, in the repository, a fixture, a screenshot or a log line.

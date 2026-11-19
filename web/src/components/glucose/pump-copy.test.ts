@@ -1,6 +1,6 @@
 // The curve's pump copy (v0.7.0 plan §7, §9): `pump.json` in both locales with the same keys, units
 // only through the `{units}` placeholder that `formatUnits` fills, and nothing that advises.
-import { findPumpCopyVocabulary, findSuggestionVocabulary } from "@naensom/shared/dosing-vocabulary";
+import { findDoseAdvice, findSuggestionVocabulary } from "@naensom/shared/dosing-vocabulary";
 import { describe, expect, it } from "vitest";
 
 import da from "../../../messages/da/pump.json";
@@ -33,12 +33,12 @@ describe("pump.json (v0.7.0 plan §7)", () => {
     }
   });
 
-  it("passes the pump scope and the suggestion list", () => {
+  it("advises nothing: no suggestion word at all", () => {
     const strings = [
       ...flat(da).map(([key, text]): [string, string] => [`da/pump.json:${key}`, text]),
       ...flat(en).map(([key, text]): [string, string] => [`en/pump.json:${key}`, text]),
     ];
-    expect(findPumpCopyVocabulary(strings)).toEqual([]);
+    expect(findDoseAdvice(strings)).toEqual([]);
     expect(findSuggestionVocabulary(strings)).toEqual([]);
   });
 

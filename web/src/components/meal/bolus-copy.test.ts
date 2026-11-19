@@ -1,4 +1,4 @@
-import { findDosingVocabulary, messageStrings } from "@naensom/shared/dosing-vocabulary";
+import { findDoseAdvice, messageStrings } from "@naensom/shared/dosing-vocabulary";
 import { describe, expect, it } from "vitest";
 
 import da from "../../../messages/da/log.json";
@@ -18,22 +18,7 @@ describe("the log copy's only bolus string: a stored time", () => {
     },
   );
 
-  it("accepts the Bolus HH:MM template and still flags anything that is not a time", () => {
-    expect(findDosingVocabulary([["k", "Bolus {time}"]])).toEqual([]);
-    expect(findDosingVocabulary([["k", "Bolus {amount}"]])).toHaveLength(1);
-    expect(findDosingVocabulary([["k", "Bolus {time} enheder"]])).toHaveLength(1);
-  });
-
-  it("finds no dosing vocabulary in the log screen's strings", () => {
-    expect(findDosingVocabulary(messageStrings({ "da/log.json": da, "en/log.json": en }))).toEqual(
-      [],
-    );
-  });
-
-  it("has no amount, unit or ratio next to the bolus anywhere in the log copy", () => {
-    const strings = messageStrings({ da, en }).map(([, text]) => text);
-    for (const text of strings.filter((s) => /bolus/i.test(s))) {
-      expect(text).not.toMatch(/\d+\s*(?:E|IE|U|IU|enheder|units)\b/i);
-    }
+  it("pairs no insulin figure with advice in the log screen's strings", () => {
+    expect(findDoseAdvice(messageStrings({ "da/log.json": da, "en/log.json": en }))).toEqual([]);
   });
 });

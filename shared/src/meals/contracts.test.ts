@@ -7,7 +7,7 @@ import * as food from "../schemas/food";
 import * as meal from "../schemas/meal";
 import { ApiErrorCode } from "../schemas/api";
 import { EventEnvelope, EventPayloads, type EventEnvelopeOf } from "../schemas/events";
-import { schemaVocabulary, findDosingVocabulary } from "../dosing-vocabulary";
+import { schemaVocabulary, findSuggestionVocabulary } from "../dosing-vocabulary";
 import * as publicExports from "../index";
 import { normaliseBarcode } from "../food/barcode";
 import { carbsFor } from "../food/portions";
@@ -202,11 +202,11 @@ describe("food and meal contracts", () => {
     ).toBe(true);
   });
 
-  it("walks strict public views recursively without glucose or dosing fields", () => {
+  it("walks strict public views recursively without glucose fields or anything that suggests", () => {
     const keys = schemaVocabulary({ FoodView: food.FoodView, DayView: meal.DayView });
     const forbidden = new Set(["mmol", "mgdl", "trend", "reading", "readings", "glucose"]);
     expect(keys.filter(([, key]) => forbidden.has(key.toLowerCase()))).toEqual([]);
-    expect(findDosingVocabulary(schemaVocabulary({ ...food, ...meal }))).toEqual([]);
+    expect(findSuggestionVocabulary(schemaVocabulary({ ...food, ...meal }))).toEqual([]);
     expect(
       meal.DayView.safeParse({ ...day, meals: [{ ...dayMeal, items: [{ ...item, mmol: 6 }] }] })
         .success,
