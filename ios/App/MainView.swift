@@ -10,6 +10,8 @@ struct MainView: View {
     @EnvironmentObject private var follow: FollowModel
     @EnvironmentObject private var live: LiveActivityController
     @State private var showSettings = false
+    /// True while a finger is moving along the curve, so the page stays put under it.
+    @State private var scrubbing = false
 
     var body: some View {
         NavigationStack {
@@ -27,7 +29,7 @@ struct MainView: View {
                     ReadingHeader()
                     LiveActivityBanner()
                     PumpStatusSection()
-                    CurveSection()
+                    CurveSection(scrubbing: $scrubbing)
                     PumpChangesSection()
                     if follow.source?.isDemo == true {
                         Label(L("main.demo"), systemImage: "theatermasks")
@@ -40,6 +42,7 @@ struct MainView: View {
                 }
                 .padding()
             }
+            .scrollDisabled(scrubbing)
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -267,6 +270,7 @@ private struct PumpChangesSection: View {
 private struct CurveSection: View {
     @EnvironmentObject private var app: AppModel
     @EnvironmentObject private var follow: FollowModel
+    @Binding var scrubbing: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -282,7 +286,8 @@ private struct CurveSection: View {
                     window: follow.settings.curveWindow,
                     thresholds: follow.thresholds,
                     unit: follow.settings.unit,
-                    now: context.date
+                    now: context.date,
+                    scrubbing: $scrubbing
                 )
             }
         }
@@ -290,15 +295,25 @@ private struct CurveSection: View {
 }
 
 /// One dot per reading, coloured by its band; the target range as a faint green band and the
-/// urgent values as faint dashed lines. The x axis is the time of day. Tapping near a dot shows
-/// that reading's exact value and its time; tapping it again, or far from any dot, hides it.
+/// urgent values as faint dashed lines. The x axis is the time of day.
+///
+/// A finger anywhere on the curve picks the reading straight above or below it: sliding sideways
+/// moves from reading to reading, each with its exact value and time and a light tick from the
+/// phone, and the page does not scroll meanwhile. A slide that starts up or down scrolls the page
+/// as usual. A tap picks the nearest reading too; tapping it again, or far from any dot, hides it.
 private struct CurveChart: View {
     let points: [Reading]
     let window: CurveWindow
     let thresholds: GlucoseThresholds
     let unit: GlucoseUnit
     let now: Date
+    @Binding var scrubbing: Bool
     @State private var selectedAt: Date?
+    /// Whether the slide under way is along the curve (true) or a scroll of the page (false);
+    /// decided by its first movement, nil between slides.
+    @State private var slideIsAlongCurve: Bool?
+    /// True while a finger is sliding; SwiftUI resets it when the slide ends or is cancelled.
+    @GestureState private var sliding = false
 
     /// The selected reading, while it is still on the curve.
     private var selected: Reading? {
@@ -361,7 +376,33 @@ private struct CurveChart: View {
                             select(at: tap.location, proxy: proxy, geometry: geometry)
                         }
                     )
+                    // Beside the page's own scrolling, not in place of it: a slide that starts
+                    // up or down is left to the page.
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 8)
+                            .updating($sliding) { _, state, _ in state = true }
+                            .onChanged { slide in
+                                if slideIsAlongCurve == nil {
+                                    let along = abs(slide.translation.width) > abs(slide.translation.height)
+                                    slideIsAlongCurve = along
+                                    if along { scrubbing = true }
+                                }
+                                if slideIsAlongCurve == true {
+                                    scrub(to: slide.location, proxy: proxy, geometry: geometry)
+                                }
+                            }
+                    )
             }
+        }
+        .onChange(of: sliding) { _, isSliding in
+            if !isSliding {
+                slideIsAlongCurve = nil
+                scrubbing = false
+            }
+        }
+        // One light tick for each reading the finger reaches, none when the selection is cleared.
+        .sensoryFeedback(trigger: selectedAt) { _, picked in
+            picked == nil ? nil : .selection
         }
         .chartXScale(domain: start...now)
         .chartYScale(domain: shown(low)...shown(high))
@@ -388,15 +429,25 @@ private struct CurveChart: View {
     /// Selects the reading nearest the tap in time, within a quarter of an hour; a second tap on
     /// the same reading, or a tap with no reading near, clears the selection.
     private func select(at location: CGPoint, proxy: ChartProxy, geometry: GeometryProxy) {
-        guard let plotFrame = proxy.plotFrame else { return }
+        let nearest = reading(under: location, proxy: proxy, geometry: geometry)
+        selectedAt = selectedAt == nearest?.at ? nil : nearest?.at
+    }
+
+    /// While a finger slides along the curve: the reading in line with it, or none where the curve
+    /// has a gap. The height of the finger does not matter.
+    private func scrub(to location: CGPoint, proxy: ChartProxy, geometry: GeometryProxy) {
+        let nearest = reading(under: location, proxy: proxy, geometry: geometry)
+        if selectedAt != nearest?.at { selectedAt = nearest?.at }
+    }
+
+    /// The reading nearest in time to a point on the chart, within a quarter of an hour of it.
+    private func reading(under location: CGPoint, proxy: ChartProxy, geometry: GeometryProxy) -> Reading? {
+        guard let plotFrame = proxy.plotFrame else { return nil }
         let x = location.x - geometry[plotFrame].origin.x
-        guard let tapped: Date = proxy.value(atX: x) else { return }
-        let nearest = points.min { abs($0.at.timeIntervalSince(tapped)) < abs($1.at.timeIntervalSince(tapped)) }
-        guard let nearest, abs(nearest.at.timeIntervalSince(tapped)) <= 15 * 60 else {
-            selectedAt = nil
-            return
-        }
-        selectedAt = selectedAt == nearest.at ? nil : nearest.at
+        guard let time: Date = proxy.value(atX: x) else { return nil }
+        let nearest = points.min { abs($0.at.timeIntervalSince(time)) < abs($1.at.timeIntervalSince(time)) }
+        guard let nearest, abs(nearest.at.timeIntervalSince(time)) <= 15 * 60 else { return nil }
+        return nearest
     }
 
     /// mg/dL in the shown unit, unrounded so the band edges sit exactly.
