@@ -1,5 +1,5 @@
 /* Nænsom til iPhone, dansk. Hver nøgle skal også findes i en.lproj/Localizable.strings
-   (scripts/check-strings.py). Insulin nævnes kun i pumpens egne tal (pump.iob, pump.reservoir). */
+   (scripts/check-strings.py). */
 
 "common.cancel" = "Annullér";
 "common.copy" = "Kopiér";
@@ -132,7 +132,7 @@
 "changes.fromPump" = "Tiderne kommer fra pumpen.";
 "changes.hint" = "Viser hvornår der sidst blev skiftet";
 
-/* The pump's own figures. The only strings that may name insulin (scripts/check-strings.py). */
+/* The pump's own figures */
 "pump.iob" = "Insulin i kroppen";
 "pump.reservoir" = "Insulin tilbage";
 "pump.fromPump" = "Pumpens egne tal.";

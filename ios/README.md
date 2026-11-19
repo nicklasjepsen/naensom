@@ -2,7 +2,7 @@
 
 A Nightscout follower for iPhone: the current glucose with its age, and a Live Activity on the lock screen, in the Dynamic Island and on CarPlay that stays current with the app closed, because our server updates it by Apple push. The plan is `docs/superpowers/plans/2026-11-08-ios-follower-app.md`; this folder is at **stage 5**: the app itself (stage 3) on top of the stage-2 skeleton and push test, with the finished Live Activity and the home and lock screen widgets (plan §7).
 
-Like the rest of Nænsom it only reads and shows every value with its age. It never calculates or advises anything about insulin; the one thing it says about it is what the pump itself reported (active insulin and insulin left, `CLAUDE.md`, hard rules). Keep the CGM app and its alarms; this shows the glucose, it does not monitor it.
+Like the rest of Nænsom it only reads and shows every value with its age. The web app's insulin rule does not apply here (`CLAUDE.md`, hard rules; owner, 2026-11-19): the app shows what the pump reports, such as its active insulin and insulin left. Keep the CGM app and its alarms; this shows the glucose, it does not monitor it.
 
 ## Layout
 
@@ -20,8 +20,7 @@ Widgets/                 the same extension's widgets (home screen, lock screen,
 Shared/                  compiled into both: GlucoseActivityAttributes, range colours, thresholds,
                          settings and the newest reading in the app group, the Keychain, the app's
                          language, and the widgets' strings (da.lproj / en.lproj Widgets.strings)
-scripts/check-strings.py every string key in both languages and both tables, none unused, insulin named only in the
-                         two pump-figure strings
+scripts/check-strings.py every string key in both languages and both tables, none unused
 ```
 
 | What                     | Value                                                                         |

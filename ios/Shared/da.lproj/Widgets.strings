@@ -1,5 +1,5 @@
 /* Nænsom's widgets and Live Activity, Danish. Every key must also be in
-   en.lproj/Widgets.strings (scripts/check-strings.py). Never anything about insulin. */
+   en.lproj/Widgets.strings (scripts/check-strings.py). */
 
 "widget.name" = "Glukose";
 "widget.description" = "Den nyeste måling med dens alder. iOS bestemmer, hvor tit widgets opdateres, så værdien bliver grå, når den er 15 minutter gammel.";

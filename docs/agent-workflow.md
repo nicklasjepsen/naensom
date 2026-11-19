@@ -263,8 +263,7 @@ creates worktrees, issues, tags or PRs before showing the plan and getting an OK
 - Add anything that computes, suggests or lets anyone enter insulin. Pump history (the time and
   delivered units of a bolus the pump recorded, read-only, never to a viewer or an AI model) is the
   one exception, in its own files; everything else fails the test, the guardian and the PR. The
-  iPhone app alone may also show pump status (the pump's own battery, active insulin and insulin
-  left, as reported, with their age; `CLAUDE.md`, hard rules).
+  rule does not apply to the iPhone app (`ios/`).
 - Widen a lane. If the task is wrong, open an issue labelled `needs-owner` and say why.
 
 ## 10. Triage and housekeeping, in the background

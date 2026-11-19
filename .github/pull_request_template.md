@@ -4,7 +4,7 @@
 
 ## Hard rules (tick honestly; the spec-guardian checks the same list)
 
-- [ ] No insulin dosing: nothing computes, suggests or lets anyone enter insulin (no input field, calculation, ratio, correction or "you should" in code, copy, prompts, schemas or tests); pump history (the time and delivered units of a bolus the pump recorded) stays read-only, in its own copy files, never to a viewer or an AI model; pump status (the pump's own battery, active insulin and insulin left, as reported, with their age) appears only in the iPhone app and is never calculated
+- [ ] No insulin dosing: nothing computes, suggests or lets anyone enter insulin (no input field, calculation, ratio, correction or "you should" in code, copy, prompts, schemas or tests); pump history (the time and delivered units of a bolus the pump recorded) stays read-only, in its own copy files, never to a viewer or an AI model; the rule does not apply to `ios/`
 - [ ] Anything from OFF, Frida, AI or free text is created `verified: false`
 - [ ] Every glucose value travels with its timestamp and renders with its age
 - [ ] `viewer` never receives glucose, enforced in the API layer
