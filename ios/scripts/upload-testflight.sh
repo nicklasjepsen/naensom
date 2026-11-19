@@ -1,6 +1,7 @@
 #!/bin/sh
 # Archive, sign and upload a Nænsom build to TestFlight with xcodebuild alone, using the Apple ID signed
-# in to Xcode. Usage, from ios/:  scripts/upload-testflight.sh <build-number>
+# in to Xcode, or an App Store Connect API key when ASC_KEY_PATH, ASC_KEY_ID and ASC_ISSUER_ID are set.
+# Usage, from ios/:  scripts/upload-testflight.sh <build-number>
 #
 # Why not a plain signed archive: automatic signing archives with a development profile, and Apple
 # refuses to make one while the team has no registered devices. So the archive is built unsigned, the
@@ -37,5 +38,14 @@ cat > "$OUT/ExportOptions.plist" <<PLIST
 </dict></plist>
 PLIST
 
+# With an App Store Connect API key (ASC_KEY_PATH: the .p8 file's absolute path, ASC_KEY_ID,
+# ASC_ISSUER_ID) the export signs in with the key, so it does not depend on the Apple ID session in
+# Xcode's Accounts, which expires and can only be renewed at the Mac's screen.
+if [ -n "${ASC_KEY_PATH:-}" ] && [ -n "${ASC_KEY_ID:-}" ] && [ -n "${ASC_ISSUER_ID:-}" ]; then
+  set -- -authenticationKeyPath "$ASC_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" \
+    -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+else
+  set --
+fi
 xcodebuild -exportArchive -archivePath "$OUT/Naensom.xcarchive" \
-  -exportOptionsPlist "$OUT/ExportOptions.plist" -exportPath "$OUT/export" -allowProvisioningUpdates
+  -exportOptionsPlist "$OUT/ExportOptions.plist" -exportPath "$OUT/export" -allowProvisioningUpdates "$@"
