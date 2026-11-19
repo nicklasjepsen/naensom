@@ -18,6 +18,10 @@ final class FollowModel: ObservableObject {
     /// site cannot give them (no pump events, a token without access to treatments).
     @Published private(set) var pumpChanges: PumpChanges?
     private var pumpChangesReadAt: Date?
+    /// The pump's own newest battery, active insulin and reservoir, or nil before the first read or
+    /// when the site cannot give them (no device status, a token without access to it).
+    @Published private(set) var pumpStatus: PumpStatus?
+    private var pumpStatusReadAt: Date?
 
     /// Called with the newest reading whenever a fetch brings a newer one.
     var onNewReading: ((Reading, Reading?) -> Void)?
@@ -50,6 +54,8 @@ final class FollowModel: ObservableObject {
         error = nil
         pumpChanges = nil
         pumpChangesReadAt = nil
+        pumpStatus = nil
+        pumpStatusReadAt = nil
         thresholds = ThresholdStore.current
         self.source = source
     }
@@ -69,6 +75,8 @@ final class FollowModel: ObservableObject {
         error = nil
         pumpChanges = nil
         pumpChangesReadAt = nil
+        pumpStatus = nil
+        pumpStatusReadAt = nil
         thresholds = ThresholdStore.current
         settings = SettingsStore.load()
     }
@@ -90,6 +98,7 @@ final class FollowModel: ObservableObject {
                 Task { await readSiteThresholds(generation: asked) }
             }
             Task { await refreshPumpChanges(now: now) }
+            Task { await refreshPumpStatus(now: now) }
         } catch {
             guard asked == generation else { return }
             self.error = error as? NightscoutError ?? .unreachable
@@ -132,6 +141,19 @@ final class FollowModel: ObservableObject {
         guard asked == generation, let found else { return }
         pumpChanges = found
         onPumpChanges?()
+    }
+
+    /// The pump's own figures, read beside the value at most every four minutes (the pump records
+    /// its active insulin every ten, and the phone uploads when it does). Like the changes: a
+    /// failure leaves what was shown, with its age, and never shows an error.
+    func refreshPumpStatus(now: Date = Date()) async {
+        guard let source else { return }
+        guard pumpStatusReadAt.map({ now.timeIntervalSince($0) >= 4 * 60 }) ?? true else { return }
+        let asked = generation
+        pumpStatusReadAt = now
+        let found = try? await feed.pumpStatus(source, now: now)
+        guard asked == generation, let found else { return }
+        pumpStatus = found
     }
 
     // MARK: - Settings

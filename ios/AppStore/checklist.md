@@ -37,7 +37,8 @@ legal judgement, or his name.
 - [ ] **Copy check by hand**: the listing, review notes and screenshot captions contain none of the
       words in `shared/src/dosing-vocabulary.ts` (`insulin`, `dosis`, `dose`, `dosing`, `ratio`,
       `correction`, `korrektion`, `ICR`, `ISF`, `IE`, `IU`, `bolus`). The review notes use "never
-      calculates insulin" once, which is the allow-listed phrase; the listings use none of them.
+      calculates insulin" once and name the two pump figures the app shows ("Insulin on board",
+      "Insulin left"), which are the allow-listed phrases; the listings use none of them.
       Re-run after any edit:
       `     grep -inwE 'insulin|dosis|dose|dosing|ratio|correction|korrektion|ICR|ISF|IE|IU|bolus' ios/AppStore/listing.*.md
   `

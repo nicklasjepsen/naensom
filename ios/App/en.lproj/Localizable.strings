@@ -1,5 +1,5 @@
 /* Nænsom for iPhone, English. Every key must also be in da.lproj/Localizable.strings
-   (scripts/check-strings.py). Never anything about insulin. */
+   (scripts/check-strings.py). Insulin is named only in the pump's own figures (pump.iob, pump.reservoir). */
 
 "common.cancel" = "Cancel";
 "common.copy" = "Copy";
@@ -131,6 +131,14 @@
 "changes.days" = "%ld days";
 "changes.fromPump" = "The times come from the pump.";
 "changes.hint" = "Shows when it was last changed";
+
+/* The pump's own figures. The only strings that may name insulin (scripts/check-strings.py). */
+"pump.iob" = "Insulin on board";
+"pump.reservoir" = "Insulin left";
+"pump.fromPump" = "The pump's own figures.";
+"pump.battery" = "Pump battery %ld%%";
+"pump.last" = "Last %@";
+"pump.units.spoken" = "%@ units";
 
 /* Change reminders */
 "changes.snooze" = "Remind me again";

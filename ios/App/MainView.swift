@@ -17,11 +17,16 @@ struct MainView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     // The name as the brand writes it, lower case and larger than a navigation
                     // title, in the value's rounded face.
-                    Text(verbatim: "nænsom")
-                        .font(.system(size: 44, weight: .bold, design: .rounded))
-                        .accessibilityAddTraits(.isHeader)
+                    HStack(alignment: .center) {
+                        Text(verbatim: "nænsom")
+                            .font(.system(size: 44, weight: .bold, design: .rounded))
+                            .accessibilityAddTraits(.isHeader)
+                        Spacer(minLength: 12)
+                        PumpBatteryBadge()
+                    }
                     ReadingHeader()
                     LiveActivityBanner()
+                    PumpStatusSection()
                     CurveSection()
                     PumpChangesSection()
                     if follow.source?.isDemo == true {

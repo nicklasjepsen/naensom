@@ -170,17 +170,22 @@ public struct NightscoutClient: Sendable {
         return byDate.values.sorted { $0.at > $1.at }
     }
 
-    private static func number(_ value: Any?) -> Double? {
+    static func number(_ value: Any?) -> Double? {
         // JSONSerialization gives NSNumber on Apple platforms and Int/Double on Linux; a Bool is
         // an NSNumber too, and is not a number here.
         #if canImport(Darwin)
         guard let n = value as? NSNumber, CFGetTypeID(n) != CFBooleanGetTypeID() else { return nil }
         return n.doubleValue
         #else
+        // An NSNumber holding 0 or 1 also answers `is Bool`, so ask the number what it was made
+        // from before asking Swift: only a real boolean is refused, and zero stays a number.
+        if let n = value as? NSNumber {
+            let type = String(cString: n.objCType)
+            return type == "c" || type == "B" ? nil : n.doubleValue
+        }
         if value is Bool { return nil }
         if let d = value as? Double { return d }
         if let i = value as? Int { return Double(i) }
-        if let n = value as? NSNumber { return n.doubleValue }
         return nil
         #endif
     }

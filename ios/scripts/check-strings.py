@@ -6,7 +6,8 @@
   in ios/Shared, ios/LiveActivity and ios/Widgets (the extension does not carry the app's table).
 
 Every key used exists in both da and en, both files of a table have the same keys and
-placeholders, every key is used, and no string mentions insulin. Runs anywhere with Python 3
+placeholders, every key is used, and no string mentions insulin except the two that name the
+pump's own figures (PUMP_FIGURE_KEYS, in the app's table only). Runs anywhere with Python 3
 (no Xcode needed)."""
 import pathlib
 import re
@@ -14,6 +15,10 @@ import sys
 
 ios = pathlib.Path(__file__).resolve().parent.parent
 pair = re.compile(r'^\s*"((?:[^"\\]|\\.)*)"\s*=\s*"((?:[^"\\]|\\.)*)"\s*;\s*$')
+
+# The pump's own figures, shown as the pump reported them: active insulin and insulin left. The
+# only strings that may say "insulin"; the widgets' table has none.
+PUMP_FIGURE_KEYS = {"Localizable.strings": {"pump.iob", "pump.reservoir"}}
 
 TABLES = [
     # (folder, table file, lookup function, folders whose Swift may use it)
@@ -50,7 +55,7 @@ for folder, table, function, users in TABLES:
             problems.append(f"{table} {key}: placeholders differ between da and en")
     for lang, entries in (("da", da), ("en", en)):
         for key, value in entries.items():
-            if "insulin" in value.lower():
+            if "insulin" in value.lower() and key not in PUMP_FIGURE_KEYS.get(table, set()):
                 problems.append(f"{table} {lang} {key}: mentions insulin")
 
     used = set()

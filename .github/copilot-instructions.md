@@ -10,7 +10,10 @@ the design spec is in `docs/superpowers/specs/2026-10-14-naensom-design.md`.
    calculation, a ratio, a correction, a "you should", in code, copy, prompts, schemas or tests; the
    one exception is pump history, the time and delivered units of a bolus the pump recorded, shown
    read-only to owners and carers outside simpleMode, never to a viewer, never to an AI model, and
-   its copy only in the pump namespaces; `CLAUDE.md`, hard rules); data from an external source
+   its copy only in the pump namespaces; a second exception, in the iPhone app (`ios/`) only, is
+   pump status, the pump's own battery, active insulin and insulin left shown as the pump reported
+   them with their age, never calculated or carried forward, never to an AI model; `CLAUDE.md`,
+   hard rules); data from an external source
    or AI created without `verified: false`; a glucose value without its timestamp or rendered without
    its age; the `viewer` role receiving glucose, or any role check done only in the UI; raw readings
    sent to an AI provider; a write to space data that does not go through `emit()`; a vendor API

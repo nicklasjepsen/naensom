@@ -171,7 +171,12 @@ public enum Glucose {
     /// "just now", "3 min ago", "2 h ago", "yesterday", "3 days ago" (Danish: "lige nu",
     /// "3 min siden", …). A reading from the future is "just now".
     public static func ageText(_ reading: Reading, now: Date, language: Language = .en) -> String {
-        let age = now.timeIntervalSince(reading.at)
+        ageText(at: reading.at, now: now, language: language)
+    }
+
+    /// The same words for any time: a pump figure's age reads like a reading's.
+    public static func ageText(at: Date, now: Date, language: Language = .en) -> String {
+        let age = now.timeIntervalSince(at)
         let minutes = Int(age / 60)
         let hours = Int(age / 3600)
         let days = Int(age / 86400)
