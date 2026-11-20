@@ -41,6 +41,17 @@
 "main.curve" = "Glucose over the last %ld hours";
 "main.curve.empty" = "No readings in this period";
 "main.demo" = "This is the demo. The readings are made up.";
+"range.title" = "Last %ld hours";
+"range.percent" = "%ld%%";
+"range.inTarget" = "in target";
+"range.above" = "Above target";
+"range.below" = "Below target";
+"range.average" = "Average";
+"range.highest" = "Highest";
+"range.lowest" = "Lowest";
+"range.partial" = "Based on %@ of readings.";
+"range.show" = "Tap to see time in target";
+"range.hide" = "Tap to hide time in target";
 
 "live.error.disabled" = "Live Activities are turned off for nænsom in the iPhone's Settings.";
 "live.error.start" = "The Live Activity couldn't start. Try again in a moment.";

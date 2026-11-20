@@ -12,6 +12,8 @@ struct MainView: View {
     @State private var showSettings = false
     /// True while a finger is moving along the curve, so the page stays put under it.
     @State private var scrubbing = false
+    /// Time in target under the value, opened and closed by a tap on the value; kept between launches.
+    @AppStorage("main.showRangeSummary") private var showRangeSummary = false
 
     var body: some View {
         NavigationStack {
@@ -26,7 +28,10 @@ struct MainView: View {
                         Spacer(minLength: 12)
                         PumpBatteryBadge()
                     }
-                    ReadingHeader()
+                    ReadingHeader(showRangeSummary: $showRangeSummary)
+                    if showRangeSummary, follow.latest != nil {
+                        RangeSummaryCard()
+                    }
                     LiveActivityBanner()
                     PumpStatusSection()
                     CurveSection(scrubbing: $scrubbing)
@@ -94,9 +99,11 @@ private struct FloatingSurface: ViewModifier {
 }
 
 /// The value, arrow, unit, change and age. Re-rendered every 15 seconds so the age and the
-/// stale state stay true between readings.
+/// stale state stay true between readings. A tap on it opens time in target for the hours the
+/// curve shows, right under it, and a second tap closes it; the value itself never goes away.
 private struct ReadingHeader: View {
     @EnvironmentObject private var follow: FollowModel
+    @Binding var showRangeSummary: Bool
 
     var body: some View {
         if let latest = follow.latest {
@@ -122,14 +129,29 @@ private struct ReadingHeader: View {
         let arrow = Glucose.arrow(latest.direction)
         let age = Glucose.ageText(latest, now: now, language: AppLanguage.current)
         let delta = Glucose.formatDelta(latest, previous: follow.previous, unit: unit, locale: AppLanguage.locale)
-        return VStack(alignment: .leading, spacing: 6) {
+        return Button {
+            withAnimation(.easeInOut(duration: 0.2)) { showRangeSummary.toggle() }
+        } label: {
+            header(value: arrow.isEmpty ? value : "\(value) \(arrow)", unit: unit, colour: colour, age: age, delta: delta, stale: stale)
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint(showRangeSummary ? L("range.hide") : L("range.show"))
+    }
+
+    private func header(value: String, unit: GlucoseUnit, colour: Color, age: String, delta: String?, stale: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(arrow.isEmpty ? value : "\(value) \(arrow)")
+                Text(value)
                     .font(.system(size: 64, weight: .semibold, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(colour)
                 Text(unit.label)
                     .foregroundStyle(.secondary)
+                Spacer(minLength: 8)
+                // The same small arrow as the rows under "Skift": this opens and closes.
+                Image(systemName: showRangeSummary ? "chevron.up" : "chevron.down")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
             }
             HStack(spacing: 6) {
                 Text(age)
@@ -151,6 +173,8 @@ private struct ReadingHeader: View {
                     .foregroundStyle(.orange)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
     }
 }

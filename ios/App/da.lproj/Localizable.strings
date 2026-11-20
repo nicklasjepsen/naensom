@@ -41,6 +41,17 @@
 "main.curve" = "Blodsukker de seneste %ld timer";
 "main.curve.empty" = "Ingen målinger i perioden";
 "main.demo" = "Det her er demoen. Målingerne er opdigtede.";
+"range.title" = "Seneste %ld timer";
+"range.percent" = "%ld %%";
+"range.inTarget" = "i målet";
+"range.above" = "Over målet";
+"range.below" = "Under målet";
+"range.average" = "Gennemsnit";
+"range.highest" = "Højest";
+"range.lowest" = "Lavest";
+"range.partial" = "Bygger på %@ med målinger.";
+"range.show" = "Tryk for at se tid i målet";
+"range.hide" = "Tryk for at skjule tid i målet";
 
 "live.error.disabled" = "Live Activities er slået fra for nænsom i iPhonens Indstillinger.";
 "live.error.start" = "Live Activity kunne ikke starte. Prøv igen om lidt.";
