@@ -26,14 +26,15 @@ legal judgement, or his name.
       be in the build that is submitted (App Review guideline 2.3). Check in particular:
   - [ ] **Widgets**: plan stage 5, not in the app at the time of writing. If the build has none,
         delete the "Widgets" line from both descriptions and the "widget" keyword.
-  - [ ] **Apple Watch Smart Stack and CarPlay**: the Live Activity's small family is declared
+  - [x] **Apple Watch Smart Stack and CarPlay** (the owner tried CarPlay, 2026-11-20): the Live Activity's small family is declared
         (`LiveActivity/GlucoseLiveActivity.swift`). It appears there from iOS 18 (Watch) and iOS 26
         (CarPlay). Check once in Xcode's CarPlay simulator.
   - [ ] **Low and high reminders**: the relay sends them in production.
 - [ ] **TestFlight on the owner's own iPhone** for a few days (plan §7, stage 6), including the push
       test through the 8-hour restart on a real phone (current after it is the aim; plainly stale is
       acceptable, plan §9 decision 6). **Owner** (his phone).
-- [ ] **Screenshots captured** per `screenshots.md`, both languages, both sizes.
+- [x] **Screenshots captured** per `screenshots.md`, both languages, both sizes (2026-11-20, by a UI
+      test in the Simulator; the files are kept outside the repo).
 - [ ] **Copy check by hand** (a choice for the store page; the app itself shows the pump's own
       insulin figures since 2026-11-19): the listing, review notes and screenshot captions contain none of the
       words in `shared/src/dosing-vocabulary.ts` (`insulin`, `dosis`, `dose`, `dosing`, `ratio`,
@@ -80,8 +81,7 @@ legal judgement, or his name.
      Device): required for apps in the Medical category in the EEA, UK and US. The expected answer is
      **No**: Nænsom is not cleared, registered or certified as a medical device anywhere. Whether it
      _should_ be (a secondary display of CGM data with low and high notifications, used by families
-     in the EU) is a legal question, not a form field. **Owner** decides, and takes advice if in
-     doubt; the copy already says it is not a medical device and does not replace the CGM app's
+     in the EU) is a legal question, not a form field. The owner's answer is **No** (2026-11-20); the copy already says it is not a medical device and does not replace the CGM app's
      alarms.
    - **Export compliance**: already answered by the build (`ITSAppUsesNonExemptEncryption` false,
      HTTPS only through Apple's APIs); App Store Connect does not ask again.

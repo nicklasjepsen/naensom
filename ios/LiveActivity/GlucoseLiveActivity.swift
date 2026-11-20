@@ -49,12 +49,18 @@ func glucoseActivityConfiguration() -> ActivityConfiguration<GlucoseActivityAttr
                     if LiveActivityLayout.showChange {
                         DeltaText(state: state, unit: unit, font: .title3)
                     }
-                    LayoutAgeText(readingAt: state.readingAt, isStale: context.isStale, font: .footnote)
                 }
                 .padding(.trailing, 4)
             }
+            // The age has the full width down here. In the trailing region the Danish words
+            // ("3 min. og 32 sek. siden") were cut off even at the smallest scale.
             DynamicIslandExpandedRegion(.bottom) {
-                if context.isStale { StaleLabel(font: .footnote) }
+                VStack(alignment: .trailing, spacing: 2) {
+                    LayoutAgeText(readingAt: state.readingAt, isStale: context.isStale, font: .footnote, alignment: .trailing, badge: false)
+                    if context.isStale { StaleLabel(font: .footnote) }
+                }
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .padding(.horizontal, 4)
             }
         } compactLeading: {
             ValueText(state: state, unit: unit, color: color, size: 17, arrow: LiveActivityLayout.showArrow)
