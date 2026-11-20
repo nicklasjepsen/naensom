@@ -20,8 +20,8 @@ legal judgement, or his name.
       `/.well-known/apple-app-site-association` (`ios/README.md`, "Follow-ups outside `ios/`").
       The host rename is waiting for the owner; until it is done, the two URLs must point somewhere
       that answers. **Owner.**
-- [ ] **The real icon** replaces the placeholder (`App/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png`).
-      Apple rejects placeholder-looking icons. **Owner** picks it.
+- [x] **The real icon** replaces the placeholder (`App/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png`):
+      a lower-case n, white on green, drawn by `scripts/make-icon.swift` (owner, 2026-11-20).
 - [ ] **The listing matches the build.** Every feature in `listing.da.md` and `listing.en.md` must
       be in the build that is submitted (App Review guideline 2.3). Check in particular:
   - [ ] **Widgets**: plan stage 5, not in the app at the time of writing. If the build has none,
@@ -41,8 +41,7 @@ legal judgement, or his name.
       calculates insulin" once and name the two pump figures the app shows ("Insulin on board",
       "Insulin left"), which are the allow-listed phrases; the listings use none of them.
       Re-run after any edit:
-      `     grep -inwE 'insulin|dosis|dose|dosing|ratio|correction|korrektion|ICR|ISF|IE|IU|bolus' ios/AppStore/listing.*.md
-  `
+      `    grep -inwE 'insulin|dosis|dose|dosing|ratio|correction|korrektion|ICR|ISF|IE|IU|bolus' ios/AppStore/listing.*.md`
       (no output is the pass).
 - [ ] **Lengths**: name and subtitle at most 30 characters, promotional text 170, description and
       What's New 4000, keywords 100. Apple counts the keyword field in bytes on some screens: the
